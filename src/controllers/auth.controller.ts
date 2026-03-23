@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import * as authService from "../services/auth.service";
 import jwtConfig from "../config/jwt.config";
+import { isValidEmail, isValidPassword } from "../lib/validators";
 
 // ─────────────────────────────────────────────────────────────
 // POST /api/auth/register
@@ -19,6 +20,16 @@ export async function register(req: Request, res: Response, next: NextFunction):
 
     if (!nombre || !email || !password || !nombre_empresa) {
       res.status(400).json({ message: "nombre, email, contraseña y nombre_empresa son requeridos" });
+      return;
+    }
+
+    if (!isValidEmail(email)) {
+      res.status(400).json({ message: "El formato del email no es válido" });
+      return;
+    }
+
+    if (!isValidPassword(password)) {
+      res.status(400).json({ message: "La contraseña debe tener al menos 8 caracteres" });
       return;
     }
 

@@ -68,6 +68,15 @@ export async function createUser(
   empresaId: string,
   data: { nombre: string; email: string; password: string; rol?: Rol }
 ): Promise<UserPublic> {
+  // Solo se pueden crear roles de empresa — jamás admin o gerente via API
+  const rolesPermitidos: Rol[] = ["contador", "empleado"];
+  if (data.rol && !rolesPermitidos.includes(data.rol)) {
+    throw Object.assign(
+      new Error("Solo se pueden crear usuarios con rol 'contador' o 'empleado'"),
+      { status: 400 }
+    );
+  }
+
   const emailTaken = await prisma.usuario.findUnique({ where: { email: data.email } });
   if (emailTaken) {
     throw Object.assign(new Error("El email ya está registrado"), { status: 409 });
@@ -80,7 +89,7 @@ export async function createUser(
       nombre: data.nombre,
       email: data.email,
       password_hash,
-      rol: data.rol ?? "operador",
+      rol: data.rol ?? "empleado",
       empresa_id: empresaId,
     },
     select: PUBLIC_SELECT,

@@ -6,7 +6,7 @@ declare global {
     interface Request {
       user?: {
         userId: string;
-        empresaId: string;
+        empresaId: string | null; // null para admin de plataforma
         rol: Rol;
         iat?: number;
         exp?: number;

@@ -34,9 +34,10 @@ datasource db {
 // ============================================================
 
 enum Rol {
-  admin
-  operador
-  consulta
+  admin    // Superusuario de plataforma — sin empresa
+  gerente  // Admin de empresa — acceso total dentro de su empresa
+  contador // Rol financiero — transacciones, cuentas, conciliación
+  empleado // Rol operativo — inventario, kardex, producción, ventas
 }
 
 enum TipoTransaccion {
@@ -141,12 +142,12 @@ model Empresa {
 // ============================================================
 model Usuario {
   id            String   @id @default(uuid()) @db.Uuid
-  empresa_id    String   @db.Uuid
+  empresa_id    String?  @db.Uuid  // NULL solo para rol=admin (plataforma)
   nombre        String   @db.VarChar(255)
   email         String   @unique @db.VarChar(255)
   password_hash String
   avatar_url    String?
-  rol                      Rol       @default(operador)
+  rol                      Rol       @default(empleado)
   activo                   Boolean   @default(true)
   refresh_token_hash       String?   // bcrypt hash del refresh token activo
   refresh_token_expires_at DateTime? @db.Timestamptz(6)
@@ -154,7 +155,8 @@ model Usuario {
   updated_at               DateTime  @updatedAt @db.Timestamptz(6)
 
   // Relaciones
-  empresa        Empresa         @relation(fields: [empresa_id], references: [id], onDelete: Cascade)
+  // empresa_id es nullable: admins de plataforma no pertenecen a empresa
+  empresa        Empresa?        @relation(fields: [empresa_id], references: [id], onDelete: Cascade)
   transacciones  Transaccion[]
   produccion_log ProduccionLog[]
   kardex         Kardex[]
