@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node dist/index.js",
     "dev": "tsx watch src/index.ts",
-    "build": "tsc"
+    "build": "tsc",
+    "db:seed": "tsx src/database/seeders/seedCurrencies.ts"
   },
   "keywords": [
     "express",

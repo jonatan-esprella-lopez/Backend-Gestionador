@@ -5,6 +5,8 @@ import cors from "cors";
 import express, { Request, Response, NextFunction } from "express";
 import helmet from "helmet";
 
+import { logInfo } from "./lib/logger";
+import { requestLogger, logRequestError } from "./middlewares/request-logger.middleware";
 import authRoutes from "./routes/auth.routes";
 import userRoutes from "./routes/user.routes";
 
@@ -17,6 +19,7 @@ app.use(cors({ origin: true, credentials: true }));
 app.use(cookieParser());
 app.use(express.json({ limit: "10kb" }));
 app.use(express.urlencoded({ extended: true }));
+app.use(requestLogger);
 
 // ── Rutas ──────────────────────────────────────────────────
 app.use(`${API_PREFIX}/auth`,  authRoutes);
@@ -40,16 +43,24 @@ app.get(`${API_PREFIX}/health`, (_req: Request, res: Response) => {
 app.use((req: Request, res: Response) => {
   res.status(404).json({
     message: `Ruta no encontrada: ${req.method} ${req.originalUrl}`,
+    request_id: req.requestId,
+    endpoint_description: req.endpointDescription,
   });
 });
 
-app.use((err: Error & { status?: number }, _req: Request, res: Response, _next: NextFunction) => {
-  console.error(err);
+app.use((err: Error & { status?: number }, req: Request, res: Response, _next: NextFunction) => {
+  logRequestError(req, err);
   res.status(err.status ?? 500).json({
     message: err.message || "Error interno del servidor",
+    request_id: req.requestId,
+    endpoint_description: req.endpointDescription,
   });
 });
 
 app.listen(PORT, () => {
-  console.log(`Servidor corriendo en http://localhost:${PORT}`);
+  logInfo("server:start", {
+    port: Number(PORT),
+    api_prefix: API_PREFIX,
+    url: `http://localhost:${PORT}`,
+  });
 });

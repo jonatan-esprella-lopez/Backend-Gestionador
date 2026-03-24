@@ -4,6 +4,9 @@ import { Rol } from "@prisma/client";
 declare global {
   namespace Express {
     interface Request {
+      requestId?: string;
+      requestPath?: string;
+      endpointDescription?: string;
       user?: {
         userId: string;
         empresaId: string;
