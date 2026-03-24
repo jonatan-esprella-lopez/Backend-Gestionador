@@ -18,8 +18,11 @@ const MAX_OBJECT_KEYS = 20;
 const MAX_STRING_LENGTH = 280;
 
 function truncateString(value: string): string {
-  if (value.length <= MAX_STRING_LENGTH) return value;
-  return `${value.slice(0, MAX_STRING_LENGTH)}…`;
+  if (value.length <= MAX_STRING_LENGTH) {
+    return value;
+  }
+
+  return `${value.slice(0, MAX_STRING_LENGTH)}...`;
 }
 
 function sanitizeKeyValue(key: string, value: unknown, depth: number, seen: WeakSet<object>): unknown {
@@ -35,14 +38,30 @@ export function sanitizeValue(
   depth = 0,
   seen = new WeakSet<object>()
 ): unknown {
-  if (value == null) return value;
+  if (value == null) {
+    return value;
+  }
 
-  if (typeof value === "string") return truncateString(value);
-  if (typeof value === "number" || typeof value === "boolean") return value;
-  if (typeof value === "bigint") return value.toString();
-  if (typeof value === "function") return `[Function ${value.name || "anonymous"}]`;
+  if (typeof value === "string") {
+    return truncateString(value);
+  }
 
-  if (value instanceof Date) return value.toISOString();
+  if (typeof value === "number" || typeof value === "boolean") {
+    return value;
+  }
+
+  if (typeof value === "bigint") {
+    return value.toString();
+  }
+
+  if (typeof value === "function") {
+    return `[Function ${value.name || "anonymous"}]`;
+  }
+
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
   if (value instanceof Error) {
     return {
       name: value.name,
@@ -51,18 +70,25 @@ export function sanitizeValue(
     };
   }
 
-  if (Buffer.isBuffer(value)) return `[Buffer length=${value.length}]`;
+  if (Buffer.isBuffer(value)) {
+    return `[Buffer length=${value.length}]`;
+  }
 
-  if (depth >= MAX_DEPTH) return "[MaxDepth]";
+  if (depth >= MAX_DEPTH) {
+    return "[MaxDepth]";
+  }
 
   if (Array.isArray(value)) {
-    return value.slice(0, MAX_ARRAY_ITEMS).map((item) =>
-      sanitizeValue(item, depth + 1, seen)
-    );
+    return value
+      .slice(0, MAX_ARRAY_ITEMS)
+      .map((item) => sanitizeValue(item, depth + 1, seen));
   }
 
   if (typeof value === "object") {
-    if (seen.has(value)) return "[Circular]";
+    if (seen.has(value)) {
+      return "[Circular]";
+    }
+
     seen.add(value);
 
     const output: Record<string, unknown> = {};
