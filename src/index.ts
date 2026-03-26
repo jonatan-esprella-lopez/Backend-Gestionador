@@ -34,7 +34,7 @@ app.use(`${API_PREFIX}`, generalLimiter);
 
 // ── Rutas ──────────────────────────────────────────────────
 // authLimiter más estricto solo en login y register
-app.use(`${API_PREFIX}/auth`, authLimiter, authRoutes);
+app.use(`${API_PREFIX}/auth`, authRoutes);
 app.use(`${API_PREFIX}/users`,        userRoutes);
 app.use(`${API_PREFIX}/transactions`, transactionRoutes);
 app.use(`${API_PREFIX}/inventory`,    inventoryRoutes);

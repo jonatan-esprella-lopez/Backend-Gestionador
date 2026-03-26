@@ -1,8 +1,25 @@
 import { Request, Response, NextFunction } from "express";
 import { TipoItem } from "@prisma/client";
 import * as invService from "../services/inventory.service";
+import * as uploadService from "../services/upload.service";
 import type { RecetaData } from "../services/inventory.service";
 import { isValidUUID, isValidEnum, isNonNegativeNumber, isPositiveNumber, parsePositiveInt } from "../lib/validators";
+
+// Los campos de texto/número llegan como strings desde FormData — los parseamos aquí
+function parseFormBody(body: Record<string, any>) {
+  return {
+    sku:          typeof body.sku         === "string" ? body.sku.trim()           : undefined,
+    nombre:       typeof body.nombre      === "string" ? body.nombre.trim()        : undefined,
+    tipo_item:    typeof body.tipo_item   === "string" ? body.tipo_item            : undefined,
+    precio_costo: body.precio_costo !== undefined      ? Number(body.precio_costo) : undefined,
+    precio_venta: body.precio_venta !== undefined      ? Number(body.precio_venta) : undefined,
+    stock:        body.stock        !== undefined      ? Number(body.stock)        : undefined,
+    min_warning:  body.min_warning  !== undefined      ? Number(body.min_warning)  : undefined,
+    categoria_id: body.categoria_id !== undefined      ? Number(body.categoria_id) : undefined,
+    imagen_url:   typeof body.imagen_url  === "string" ? body.imagen_url           : undefined,
+    receta:       typeof body.receta      === "string" ? JSON.parse(body.receta)   : body.receta,
+  };
+}
 
 const TIPOS_ITEM_VALIDOS: TipoItem[] = ["product", "insumo"];
 
@@ -74,32 +91,20 @@ export async function getById(req: Request, res: Response, next: NextFunction): 
 
 // ─────────────────────────────────────────────────────────────
 // POST /api/inventory
-// Body: { sku, nombre, tipo_item, precio_costo, precio_venta?,
-//         stock?, min_warning?, categoria_id?, imagen_url? }
+// Acepta multipart/form-data. El archivo de imagen va en el campo "image".
 // ─────────────────────────────────────────────────────────────
 export async function create(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const empresaId = req.user!.empresaId!;
-    const { sku, nombre, tipo_item, precio_costo, precio_venta, stock, min_warning, categoria_id, imagen_url, receta } =
-      req.body as {
-        sku?:          string;
-        nombre?:       string;
-        tipo_item?:    TipoItem;
-        precio_costo?: number;
-        precio_venta?: number;
-        stock?:        number;
-        min_warning?:  number;
-        categoria_id?: number;
-        imagen_url?:   string;
-        receta?:       RecetaData;
-      };
+    const { sku, nombre, tipo_item, precio_costo, precio_venta, stock, min_warning, categoria_id, receta } =
+      parseFormBody(req.body);
 
     if (!sku || !nombre || !tipo_item || precio_costo === undefined) {
       res.status(400).json({ message: "sku, nombre, tipo_item y precio_costo son requeridos" });
       return;
     }
 
-    if (!isValidEnum(tipo_item, TIPOS_ITEM_VALIDOS)) {
+    if (!isValidEnum(tipo_item as TipoItem, TIPOS_ITEM_VALIDOS)) {
       res.status(400).json({ message: "tipo_item inválido. Valores: product, insumo" });
       return;
     }
@@ -114,10 +119,16 @@ export async function create(req: Request, res: Response, next: NextFunction): P
       return;
     }
 
+    // Subir imagen a R2 si se adjuntó un archivo
+    let imagen_url: string | undefined;
+    if (req.file) {
+      imagen_url = await uploadService.uploadImage(req.file);
+    }
+
     const item = await invService.createItem(empresaId, {
       sku,
       nombre,
-      tipo_item,
+      tipo_item:    tipo_item as TipoItem,
       precio_costo,
       precio_venta,
       stock,
@@ -135,7 +146,7 @@ export async function create(req: Request, res: Response, next: NextFunction): P
 
 // ─────────────────────────────────────────────────────────────
 // PATCH /api/inventory/:id
-// Body: campos opcionales
+// Acepta multipart/form-data. El archivo de imagen va en el campo "image".
 // ─────────────────────────────────────────────────────────────
 export async function update(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -144,18 +155,15 @@ export async function update(req: Request, res: Response, next: NextFunction): P
       res.status(400).json({ message: "ID de item inválido" });
       return;
     }
-    const { sku, nombre, precio_costo, precio_venta, min_warning, categoria_id, imagen_url, activo, receta } =
-      req.body as {
-        sku?:          string;
-        nombre?:       string;
-        precio_costo?: number;
-        precio_venta?: number | null;
-        min_warning?:  number;
-        categoria_id?: number | null;
-        imagen_url?:   string | null;
-        activo?:       boolean;
-        receta?:       RecetaData | null;
-      };
+
+    const { sku, nombre, precio_costo, precio_venta, min_warning, categoria_id, activo, receta } =
+      parseFormBody(req.body);
+
+    // Subir nueva imagen a R2 si se adjuntó un archivo
+    let imagen_url: string | undefined | null = req.body.imagen_url ?? undefined;
+    if (req.file) {
+      imagen_url = await uploadService.uploadImage(req.file);
+    }
 
     const item = await invService.updateItem(empresaId, req.params.id as string, {
       sku,

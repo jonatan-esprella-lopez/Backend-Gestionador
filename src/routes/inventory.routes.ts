@@ -1,6 +1,7 @@
 import { Router } from "express";
 import * as invController from "../controllers/inventory.controller";
 import { authenticate, authorize } from "../middlewares/auth.middleware";
+import { uploadImage } from "../middlewares/upload.middleware";
 
 const router = Router();
 
@@ -18,9 +19,9 @@ router.get(
 router.get("/",    authorize("gerente", "contador", "empleado"), invController.list);
 router.get("/:id", authorize("gerente", "contador", "empleado"), invController.getById);
 
-// Escritura: gerente y empleado (empleado gestiona el almacén)
-router.post("/", authorize("gerente", "empleado"), invController.create);
-router.patch("/:id", authorize("gerente", "empleado"), invController.update);
+// Escritura: gerente y empleado — uploadImage procesa multipart/form-data
+router.post("/",     authorize("gerente", "empleado"), uploadImage, invController.create);
+router.patch("/:id", authorize("gerente", "empleado"), uploadImage, invController.update);
 router.delete("/:id", authorize("gerente", "empleado"), invController.remove);
 
 // ── Operaciones de stock ────────────────────────────────────
