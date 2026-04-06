@@ -4,6 +4,7 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 import express, { Request, Response, NextFunction } from "express";
 import helmet from "helmet";
+import path from "path";
 
 import authRoutes        from "./routes/auth.routes";
 import userRoutes        from "./routes/user.routes";
@@ -42,6 +43,9 @@ app.use(`${API_PREFIX}/reports`,         reportRoutes);
 app.use(`${API_PREFIX}/bank-accounts`,   bankAccountRoutes);
 app.use(`${API_PREFIX}/reconciliation`,  reconciliationRoutes);
 app.use(`${API_PREFIX}/companies`,       companyRoutes);
+
+// ── Archivos estáticos (solo dev — en prod las imágenes van a R2) ──────────
+app.use("/uploads", express.static(path.resolve("uploads")));
 
 // ── Utilidades ─────────────────────────────────────────────
 app.get("/", (_req: Request, res: Response) => {

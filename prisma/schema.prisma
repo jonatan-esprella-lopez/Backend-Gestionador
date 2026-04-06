@@ -357,10 +357,9 @@ model Kardex {
   item    InventarioItem @relation(fields: [item_id], references: [id])
   usuario Usuario?       @relation(fields: [usuario_id], references: [id], onDelete: SetNull)
 
-  @@index([empresa_id])
-  @@index([item_id])
+  // Índice compuesto para el query principal: movimientos de un item por empresa, ordenados por fecha
+  @@index([empresa_id, item_id, created_at(sort: Desc)])
   @@index([tipo_movimiento])
-  @@index([created_at])
   @@map("kardex")
 }
 
