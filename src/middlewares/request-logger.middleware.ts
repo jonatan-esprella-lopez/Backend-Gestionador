@@ -100,6 +100,7 @@ export function requestLogger(req: Request, res: Response, next: NextFunction): 
       duration_ms: Number(durationMs.toFixed(2)),
       user_id: req.user?.userId ?? null,
       empresa_id: req.user?.empresaId ?? null,
+      rol: req.user?.rol ?? null,
       response: responsePreview,
     };
 

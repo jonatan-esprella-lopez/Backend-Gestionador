@@ -16,7 +16,7 @@ import reconciliationRoutes from "./routes/reconciliation.routes";
 import companyRoutes from "./routes/company.routes";
 
 import { requestLogger } from "./middlewares/request-logger.middleware";
-import { generalLimiter, authLimiter } from "./middlewares/rate-limit.middleware";
+import { generalLimiter, authLimiter, whatsappLimiter } from "./middlewares/rate-limit.middleware";
 import whatsappRoutes from "./routes/whatsapp.routes";
 import { startOverdueJob } from "./jobs/overdue.job";
 
@@ -33,8 +33,11 @@ app.use(express.urlencoded({ extended: true }));
 app.use(requestLogger);
 
 // ── Rate limiting ──────────────────────────────────────────
-// Límite general para toda la API
-app.use(`${API_PREFIX}`, generalLimiter);
+// Límite general para toda la API (excluye rutas con limitador propio)
+app.use(`${API_PREFIX}`, (req, res, next) => {
+  if (req.path.startsWith("/whatsapp")) return next();
+  return generalLimiter(req, res, next);
+});
 
 // ── Rutas ──────────────────────────────────────────────────
 // authLimiter más estricto solo en login y register
@@ -46,7 +49,7 @@ app.use(`${API_PREFIX}/reports`, reportRoutes);
 app.use(`${API_PREFIX}/bank-accounts`, bankAccountRoutes);
 app.use(`${API_PREFIX}/reconciliation`, reconciliationRoutes);
 app.use(`${API_PREFIX}/companies`, companyRoutes);
-app.use(`${API_PREFIX}/whatsapp`, whatsappRoutes);
+app.use(`${API_PREFIX}/whatsapp`, whatsappLimiter, whatsappRoutes);
 
 // ── Archivos estáticos (solo dev — en prod las imágenes van a R2) ──────────
 app.use("/uploads", express.static(path.resolve("uploads")));
