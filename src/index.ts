@@ -17,6 +17,7 @@ import companyRoutes from "./routes/company.routes";
 
 import { requestLogger } from "./middlewares/request-logger.middleware";
 import { generalLimiter, authLimiter } from "./middlewares/rate-limit.middleware";
+import whatsappRoutes from "./routes/whatsapp.routes";
 import { startOverdueJob } from "./jobs/overdue.job";
 
 const app = express();
@@ -45,6 +46,7 @@ app.use(`${API_PREFIX}/reports`, reportRoutes);
 app.use(`${API_PREFIX}/bank-accounts`, bankAccountRoutes);
 app.use(`${API_PREFIX}/reconciliation`, reconciliationRoutes);
 app.use(`${API_PREFIX}/companies`, companyRoutes);
+app.use(`${API_PREFIX}/whatsapp`, whatsappRoutes);
 
 // ── Archivos estáticos (solo dev — en prod las imágenes van a R2) ──────────
 app.use("/uploads", express.static(path.resolve("uploads")));

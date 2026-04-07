@@ -3,3 +3,5 @@ node_modules/
 npm-debug.log*
 dist/
 base de datos v2.sql
+.wwebjs_auth/
+.wwebjs_cache/
