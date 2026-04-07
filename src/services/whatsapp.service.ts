@@ -131,6 +131,16 @@ export async function destroyClient(empresaId: string): Promise<void> {
   logInfo("whatsapp:session_destroyed", { empresaId });
 }
 
+function normalizePhone(phone: string): string {
+  // Remove all non-numeric chars except '+'
+  let p = phone.replace(/[^\d+]/g, "");
+  if (p.startsWith("+")) p = p.slice(1);
+  
+  // If it's exactly 8 digits (typical local Bolivian), auto-add 591
+  if (p.length === 8) return `591${p}`;
+  return p;
+}
+
 export async function sendMessage(
   empresaId: string,
   to: string,
@@ -143,10 +153,15 @@ export async function sendMessage(
       { status: 503 }
     );
   }
-  const chatId = to.includes("@c.us") ? to : `${to}@c.us`;
+  
+  let validPhone = to;
+  if (!to.includes("@g.us")) {
+    validPhone = normalizePhone(to.replace("@c.us", ""));
+  }
+  
+  const chatId = validPhone.includes("@") ? validPhone : `${validPhone}@c.us`;
   await session.client.sendMessage(chatId, text);
 }
-
 // ─── Incoming message handler ───────────────────────────────────────────────
 
 async function handleIncomingMessage(
