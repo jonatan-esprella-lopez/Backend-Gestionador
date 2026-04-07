@@ -7,7 +7,11 @@
     "start": "node dist/index.js",
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
+<<<<<<< HEAD
     "db:seed": "tsx src/database/seeders/seedCurrencies.ts"
+=======
+    "seed": "tsx prisma/seed.ts"
+>>>>>>> 69c78b365bf60b71168ec7474a886e2a9dc1f854
   },
   "keywords": [
     "express",
@@ -16,6 +20,9 @@
   ],
   "author": "",
   "license": "ISC",
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
   "pnpm": {
     "onlyBuiltDependencies": [
       "@prisma/client",
@@ -25,21 +32,27 @@
     ]
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1017.0",
     "@prisma/client": "^6.19.2",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.3.1",
     "helmet": "^8.1.0",
-    "jsonwebtoken": "^9.0.3"
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^2.1.1",
+    "node-cron": "^4.2.1"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
+    "@types/multer": "^2.1.0",
     "@types/node": "^25.5.0",
+    "@types/node-cron": "^3.0.11",
     "nodemon": "^3.1.14",
     "prisma": "^6.19.2",
     "tsx": "^4.21.0",

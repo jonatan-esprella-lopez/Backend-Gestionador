@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import * as authService from "../services/auth.service";
 import jwtConfig from "../config/jwt.config";
+import { isValidEmail, isValidPassword } from "../lib/validators";
 
 export async function register(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -18,6 +19,16 @@ export async function register(req: Request, res: Response, next: NextFunction):
         request_id: req.requestId,
         endpoint_description: req.endpointDescription,
       });
+      return;
+    }
+
+    if (!isValidEmail(email)) {
+      res.status(400).json({ message: "El formato del email no es válido" });
+      return;
+    }
+
+    if (!isValidPassword(password)) {
+      res.status(400).json({ message: "La contraseña debe tener al menos 8 caracteres" });
       return;
     }
 

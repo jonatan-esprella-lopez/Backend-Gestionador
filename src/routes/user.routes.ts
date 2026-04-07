@@ -4,8 +4,9 @@ import { authenticate, authorize } from "../middlewares/auth.middleware";
 
 const router = Router();
 
-// Todas las rutas requieren estar autenticado y ser admin
-router.use(authenticate, authorize("admin"));
+// Todas las rutas requieren estar autenticado.
+// admin (plataforma) y gerente (admin de empresa) pueden gestionar usuarios.
+router.use(authenticate, authorize("admin", "gerente"));
 
 router.get("/",     userController.list);
 router.get("/:id",  userController.getById);

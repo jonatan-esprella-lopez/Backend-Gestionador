@@ -98,7 +98,7 @@ export async function register(
         nombre,
         email,
         password_hash: passwordHash,
-        rol: "admin",
+        rol: "gerente",
         empresa_id: empresa.id,
       },
     });
