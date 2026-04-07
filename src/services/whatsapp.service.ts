@@ -155,10 +155,13 @@ export async function sendMessage(
   }
   
   let validPhone = to;
-  if (!to.includes("@g.us")) {
+  // Solo aplicamos normalización a números limpios (que no son grupos ni lids)
+  if (!to.includes("@g.us") && !to.includes("@lid")) {
+    // Quitamos @c.us por si acaso antes de limpiar
     validPhone = normalizePhone(to.replace("@c.us", ""));
   }
   
+  // Si ya trae el dominio (@lid, @g.us u otro), lo usamos. De lo contrario, asumimos que es número personal y añadimos @c.us
   const chatId = validPhone.includes("@") ? validPhone : `${validPhone}@c.us`;
   await session.client.sendMessage(chatId, text);
 }
@@ -230,35 +233,34 @@ async function handleIncomingMessage(
 
 // ─── Flow engine ────────────────────────────────────────────────────────────
 
-async function runFlow(
+async function dispatchFlow(
+  session: WhatsAppSession,
   empresaId: string,
   chatId: string,
   phone: string,
-  text: string
-): Promise<void> {
-  const session = sessions.get(empresaId);
-  if (!session || session.state !== "connected") return;
-
-  const key = text.toLowerCase();
-
-  const flow = await prisma.flujoWebhook.findFirst({
-    where: {
-      empresa_id: empresaId,
-      activo: true,
-      trigger_keys: { has: key },
-    },
+  flujoId: string
+) {
+  // Obtener el flujo con sus componentes
+  const flow = await prisma.flujoWebhook.findUnique({
+    where: { id: flujoId },
     include: {
       mensajes: { orderBy: { orden: "asc" } },
       opciones: { orderBy: { orden: "asc" } },
     },
-    orderBy: { orden: "asc" },
   });
 
-  if (!flow) return;
+  if (!flow || !flow.activo) return;
 
-  const waId = `${phone}@c.us`;
+  // Actualizar el estado del Chat para "atrapar" al usuario en este flujo
+  await prisma.chat.update({
+    where: { id: chatId },
+    data: { flujo_activo_id: flow.id },
+  });
 
-  // Send each flow message sequentially
+  const validPhone = (!phone.includes("@g.us") && !phone.includes("@lid")) ? normalizePhone(phone.replace("@c.us", "")) : phone;
+  const waId = validPhone.includes("@") ? validPhone : `${validPhone}@c.us`;
+
+  // Enviar cada mensaje
   for (const flowMsg of flow.mensajes) {
     await session.client.sendMessage(waId, flowMsg.contenido);
     await prisma.chatMensaje.create({
@@ -269,13 +271,12 @@ async function runFlow(
         leido: true,
       },
     });
+    await new Promise(r => setTimeout(r, 500)); // Delay natural
   }
 
-  // If there are options, build and send a menu
+  // Si hay opciones, agrupar y enviar como menú
   if (flow.opciones.length > 0) {
-    const menu = flow.opciones
-      .map((o) => `*${o.trigger_key}* - ${o.etiqueta}`)
-      .join("\n");
+    const menu = flow.opciones.map(o => `${o.trigger_key}. ${o.etiqueta}`).join("\n");
     await session.client.sendMessage(waId, menu);
     await prisma.chatMensaje.create({
       data: {
@@ -285,6 +286,68 @@ async function runFlow(
         leido: true,
       },
     });
+  } else {
+    // Si NO hay opciones interactivas, significa que el hilo de conversación terminó
+    // Liberamos la sesión (flujo_activo_id = null)
+    await prisma.chat.update({
+      where: { id: chatId },
+      data: { flujo_activo_id: null },
+    });
+  }
+}
+
+async function runFlow(
+  empresaId: string,
+  chatId: string,
+  phone: string,
+  text: string
+): Promise<void> {
+  const session = sessions.get(empresaId);
+  if (!session || session.state !== "connected") return;
+
+  // Paso 1: Normalización
+  const key = text.trim().toLowerCase();
+
+  // Paso 2: Comportamiento por Estado Activo (Contexto)
+  const chat = await prisma.chat.findUnique({ where: { id: chatId } });
+  if (chat?.flujo_activo_id) {
+    const activeFlow = await prisma.flujoWebhook.findUnique({
+      where: { id: chat.flujo_activo_id },
+      include: { opciones: true },
+    });
+
+    if (activeFlow && activeFlow.opciones.length > 0) {
+      // Buscar si digitó una opción válida
+      const opt = activeFlow.opciones.find(o => o.trigger_key.toLowerCase() === key);
+      
+      if (opt && opt.siguiente_flujo) {
+        // Encontró opción y salta de flujo
+        await dispatchFlow(session, empresaId, chatId, phone, opt.siguiente_flujo);
+        return; 
+      } else if (opt && !opt.siguiente_flujo) {
+        // Encontró opción pero es la última hoja (sin siguiente flujo)
+        await prisma.chat.update({
+          where: { id: chatId },
+          data: { flujo_activo_id: null },
+        });
+        return;
+      }
+      // Si la respuesta fue irrelevante, caerá al comportamiento global abajo
+    }
+  }
+
+  // Paso 3: Comportamiento de Triggers Globales
+  const globalFlow = await prisma.flujoWebhook.findFirst({
+    where: {
+      empresa_id: empresaId,
+      activo: true,
+      trigger_keys: { has: key },
+    },
+    orderBy: { orden: "asc" },
+  });
+
+  if (globalFlow) {
+    await dispatchFlow(session, empresaId, chatId, phone, globalFlow.id);
   }
 }
 // ─── Auto-reconnect on server startup ──────────────────────────────────────────────────────────────────

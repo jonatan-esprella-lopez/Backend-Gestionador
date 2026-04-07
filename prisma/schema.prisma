@@ -385,6 +385,7 @@ model FlujoWebhook {
   mensajes   FlujoMensaje[]
   opciones   FlujoOpcion[]  @relation("OpcionesDelFlujo")
   destino_de FlujoOpcion[]  @relation("FlujoDestino")
+  chats_activos Chat[]
 
   @@index([empresa_id])
   @@map("flujos_webhook")
@@ -469,9 +470,11 @@ model Chat {
   created_at       DateTime   @default(now()) @db.Timestamptz(6)
 
   // Relaciones
-  empresa  Empresa       @relation(fields: [empresa_id], references: [id], onDelete: Cascade)
-  contacto Contacto      @relation(fields: [contacto_id], references: [id], onDelete: Cascade)
-  mensajes ChatMensaje[]
+  empresa      Empresa       @relation(fields: [empresa_id], references: [id], onDelete: Cascade)
+  contacto     Contacto      @relation(fields: [contacto_id], references: [id], onDelete: Cascade)
+  mensajes     ChatMensaje[]
+  flujo_activo FlujoWebhook? @relation(fields: [flujo_activo_id], references: [id], onDelete: SetNull)
+  flujo_activo_id String?    @db.Uuid
 
   @@index([empresa_id])
   @@index([contacto_id])
@@ -572,3 +575,5 @@ model Configuracion {
   @@index([empresa_id])
   @@map("configuracion")
 }
+
+

@@ -517,16 +517,18 @@ export async function createFlow(
       res.status(400).json({ message: "El campo 'nombre' es requerido." });
       return;
     }
-    if (!Array.isArray(trigger_keys) || trigger_keys.length === 0) {
-      res.status(400).json({ message: "Se requiere al menos un trigger_key." });
-      return;
+    let finalTriggers: string[] = [];
+    if (typeof trigger_keys === "string") {
+      finalTriggers = (trigger_keys as string).split(",").map(k => k.trim().toLowerCase()).filter(Boolean);
+    } else if (Array.isArray(trigger_keys)) {
+      finalTriggers = trigger_keys.map(k => String(k).trim().toLowerCase()).filter(Boolean);
     }
 
     const flow = await prisma.flujoWebhook.create({
       data: {
         empresa_id: empresaId,
         nombre: nombre.trim(),
-        trigger_keys: trigger_keys.map((k) => k.toLowerCase().trim()),
+        trigger_keys: finalTriggers,
         activo: activo ?? true,
         orden: orden ?? 0,
         mensajes: mensajes
@@ -594,7 +596,11 @@ export async function updateFlow(
       data: {
         ...(nombre !== undefined ? { nombre: nombre.trim() } : {}),
         ...(trigger_keys !== undefined
-          ? { trigger_keys: trigger_keys.map((k) => k.toLowerCase().trim()) }
+          ? {
+              trigger_keys: typeof trigger_keys === "string"
+                ? (trigger_keys as string).split(",").map(k => k.trim().toLowerCase()).filter(Boolean)
+                : trigger_keys.map(k => String(k).trim().toLowerCase()).filter(Boolean)
+            }
           : {}),
         ...(activo !== undefined ? { activo } : {}),
         ...(orden !== undefined ? { orden } : {}),
