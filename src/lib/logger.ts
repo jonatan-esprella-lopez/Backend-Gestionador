@@ -104,7 +104,123 @@ export function sanitizeValue(
   return String(value);
 }
 
+// ─── ANSI color helpers ──────────────────────────────────────────────────────
+const IS_DEV = process.env.NODE_ENV !== "production";
+
+const C = {
+  reset:   "\x1b[0m",
+  bold:    "\x1b[1m",
+  dim:     "\x1b[2m",
+  green:   "\x1b[32m",
+  yellow:  "\x1b[33m",
+  red:     "\x1b[31m",
+  cyan:    "\x1b[36m",
+  magenta: "\x1b[35m",
+  blue:    "\x1b[34m",
+  gray:    "\x1b[90m",
+  white:   "\x1b[37m",
+};
+
+function statusColor(code: number): string {
+  if (code >= 500) return C.red + C.bold;
+  if (code >= 400) return C.yellow + C.bold;
+  if (code >= 300) return C.cyan;
+  return C.green;
+}
+
+function methodColor(method: string): string {
+  switch (method) {
+    case "GET":    return C.blue + C.bold;
+    case "POST":   return C.green + C.bold;
+    case "PATCH":  return C.yellow + C.bold;
+    case "PUT":    return C.yellow + C.bold;
+    case "DELETE": return C.red + C.bold;
+    default:       return C.white + C.bold;
+  }
+}
+
+function levelColor(level: LogLevel): string {
+  switch (level) {
+    case "ERROR": return C.red + C.bold;
+    case "WARN":  return C.yellow + C.bold;
+    default:      return C.green + C.bold;
+  }
+}
+
+function prettyLog(level: LogLevel, event: string, data: Record<string, unknown>): void {
+  const time = new Date().toLocaleTimeString("es", { hour12: false });
+  const levelTag = `${levelColor(level)}${level.padEnd(5)}${C.reset}`;
+
+  // ── Request start: single compact line ───────────────────────────────────
+  if (event === "request:start") {
+    const method  = String(data.method  ?? "");
+    const path    = String(data.path    ?? "");
+    const reqId   = String(data.request_id ?? "").slice(-8);
+    const auth    = data.auth as Record<string, unknown> | undefined;
+    const rol     = String(auth?.rol ?? "-");
+    console.log(
+      `${C.gray}${time}${C.reset} ${levelTag}` +
+      `  ${methodColor(method)}${method.padEnd(7)}${C.reset}` +
+      `  ${C.white}${path}${C.reset}` +
+      `  ${C.gray}[${reqId}]${C.reset}` +
+      `  ${C.magenta}${rol}${C.reset}`
+    );
+    return;
+  }
+
+  // ── Request finish: compact line with status + duration ──────────────────
+  if (event === "request:finish") {
+    const method   = String(data.method      ?? "");
+    const path     = String(data.path        ?? "");
+    const status   = Number(data.status_code ?? 0);
+    const dur      = String(data.duration_ms ?? "?");
+    const reqId    = String(data.request_id  ?? "").slice(-8);
+    const userId   = String(data.user_id     ?? "-").slice(0, 8);
+
+    const statusStr = `${statusColor(status)}${status}${C.reset}`;
+    const durStr    = `${C.cyan}${dur}ms${C.reset}`;
+
+    // Show response body only on errors
+    const response = data.response as Record<string, unknown> | undefined;
+    let extra = "";
+    if (status >= 400 && response?.message) {
+      extra = `  ${C.red}→ ${response.message}${C.reset}`;
+    } else if (status >= 200 && status < 300 && response) {
+      // Just show collection size if it's a list
+      const resp = response as Record<string, unknown>;
+      if (typeof resp.total === "number") {
+        extra = `  ${C.gray}(${resp.total} items)${C.reset}`;
+      }
+    }
+
+    console.log(
+      `${C.gray}${time}${C.reset} ${levelTag}` +
+      `  ${methodColor(method)}${method.padEnd(7)}${C.reset}` +
+      `  ${C.white}${path}${C.reset}` +
+      `  ${statusStr}` +
+      `  ${durStr}` +
+      `  ${C.gray}[${reqId}] u:${userId}${C.reset}` +
+      extra
+    );
+    return;
+  }
+
+  // ── Generic events (whatsapp:qr, auth failures, etc.) ────────────────────
+  const extras = Object.entries(data)
+    .filter(([k]) => !["timestamp", "level", "event"].includes(k))
+    .map(([k, v]) => `${C.gray}${k}${C.reset}=${C.cyan}${JSON.stringify(v)}${C.reset}`)
+    .join("  ");
+
+  console.log(`${C.gray}${time}${C.reset} ${levelTag}  ${C.magenta}${event}${C.reset}  ${extras}`);
+}
+
 function writeLog(level: LogLevel, event: string, data: Record<string, unknown>): void {
+  if (IS_DEV) {
+    prettyLog(level, event, data);
+    return;
+  }
+
+  // Production: structured JSON (unchanged)
   const sanitizedData = sanitizeValue(data);
   const entry = {
     timestamp: new Date().toISOString(),
@@ -118,16 +234,10 @@ function writeLog(level: LogLevel, event: string, data: Record<string, unknown>)
   };
 
   const serialized = JSON.stringify(entry);
-
   switch (level) {
-    case "ERROR":
-      console.error(serialized);
-      return;
-    case "WARN":
-      console.warn(serialized);
-      return;
-    default:
-      console.log(serialized);
+    case "ERROR": console.error(serialized); return;
+    case "WARN":  console.warn(serialized);  return;
+    default:      console.log(serialized);
   }
 }
 

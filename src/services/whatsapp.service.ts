@@ -1,5 +1,7 @@
 import { Client, LocalAuth, Message } from "whatsapp-web.js";
 import QRCode from "qrcode";
+import { existsSync, readdirSync } from "fs";
+import path from "path";
 import prisma from "../lib/prisma";
 import { logInfo, logWarn, logError } from "../lib/logger";
 
@@ -268,5 +270,40 @@ async function runFlow(
         leido: true,
       },
     });
+  }
+}
+// ─── Auto-reconnect on server startup ──────────────────────────────────────────────────────────────────
+
+/**
+ * Scan .wwebjs_auth/ for persisted sessions and reconnect each empresa.
+ * Called once on server startup so WA auto-reconnects after restarts.
+ */
+export async function reconnectPersistedSessions(): Promise<void> {
+  const authDir = path.join(process.cwd(), ".wwebjs_auth");
+  if (!existsSync(authDir)) {
+    logInfo("whatsapp:no_persisted_sessions", { authDir });
+    return;
+  }
+
+  const sessionDirs = readdirSync(authDir)
+    .filter((name) => name.startsWith("session-"))
+    .map((name) => name.replace("session-", ""));
+
+  if (sessionDirs.length === 0) {
+    logInfo("whatsapp:no_persisted_sessions", { authDir });
+    return;
+  }
+
+  logInfo("whatsapp:reconnecting_sessions", { count: sessionDirs.length, empresas: sessionDirs });
+
+  for (const empresaId of sessionDirs) {
+    try {
+      await initClient(empresaId);
+    } catch (err) {
+      logError("whatsapp:reconnect_error", {
+        empresaId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
   }
 }

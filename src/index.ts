@@ -19,6 +19,7 @@ import { requestLogger } from "./middlewares/request-logger.middleware";
 import { generalLimiter, authLimiter, whatsappLimiter } from "./middlewares/rate-limit.middleware";
 import whatsappRoutes from "./routes/whatsapp.routes";
 import { startOverdueJob } from "./jobs/overdue.job";
+import { reconnectPersistedSessions } from "./services/whatsapp.service";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -90,4 +91,6 @@ app.use((err: Error & { status?: number }, req: Request, res: Response, _next: N
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en http://localhost:${PORT}`);
   startOverdueJob();
+  // Auto-reconnect WhatsApp sessions saved on disk (survives server restarts)
+  reconnectPersistedSessions().catch(console.error);
 });

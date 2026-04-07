@@ -285,8 +285,11 @@ export async function sendAgentMessage(
         );
         wa_sent = true;
       } catch (err) {
-        wa_error =
-          err instanceof Error ? err.message : "Error desconocido de WhatsApp";
+        wa_error = err instanceof Error ? err.message : String(err);
+        console.error("═══ WA SEND ERROR ═══");
+        console.error("Telefono:", chat.contacto.telefono);
+        console.error("Error completo:", err);
+        console.error("═════════════════════");
       }
     } else {
       wa_error = "El contacto no tiene teléfono registrado.";
