@@ -256,13 +256,8 @@ export async function sendAgentMessage(
       res.status(404).json({ message: "Chat no encontrado." });
       return;
     }
-    if (!chat.contacto.telefono) {
-      res.status(400).json({ message: "El contacto no tiene teléfono registrado." });
-      return;
-    }
 
-    await whatsappService.sendMessage(empresaId, chat.contacto.telefono, message.trim());
-
+    // ── 1. Persist the message first (always, regardless of WA state) ──
     const saved = await prisma.chatMensaje.create({
       data: {
         chat_id: id,
@@ -277,11 +272,32 @@ export async function sendAgentMessage(
       data: { ultima_actividad: new Date() },
     });
 
-    res.status(201).json(saved);
+    // ── 2. Attempt WhatsApp delivery (non-fatal if session is down) ──
+    let wa_sent = false;
+    let wa_error: string | null = null;
+
+    if (chat.contacto.telefono) {
+      try {
+        await whatsappService.sendMessage(
+          empresaId,
+          chat.contacto.telefono,
+          message.trim()
+        );
+        wa_sent = true;
+      } catch (err) {
+        wa_error =
+          err instanceof Error ? err.message : "Error desconocido de WhatsApp";
+      }
+    } else {
+      wa_error = "El contacto no tiene teléfono registrado.";
+    }
+
+    res.status(201).json({ ...saved, wa_sent, wa_error });
   } catch (err) {
     next(err);
   }
 }
+
 
 // ─────────────────────────────────────────────────────────────
 // CONTACTS
