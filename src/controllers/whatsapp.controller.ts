@@ -11,6 +11,11 @@ function qs(val: unknown): string | undefined {
   return undefined;
 }
 
+// Express 5 types req.params values as string | string[] — params are always strings at runtime
+function p(val: string | string[]): string {
+  return Array.isArray(val) ? val[0] : val;
+}
+
 function parsePage(val: unknown): number {
   const n = parseInt(qs(val) ?? "1", 10);
   return isNaN(n) || n < 1 ? 1 : n;
@@ -152,7 +157,7 @@ export async function getChat(
 ): Promise<void> {
   try {
     const empresaId = req.user!.empresaId!;
-    const { id } = req.params;
+    const id = p(req.params.id);
 
     if (!isValidUUID(id)) {
       res.status(400).json({ message: "ID de chat inválido." });
@@ -192,7 +197,7 @@ export async function updateChatStatus(
 ): Promise<void> {
   try {
     const empresaId = req.user!.empresaId!;
-    const { id } = req.params;
+    const id = p(req.params.id);
     const { estado } = req.body as { estado?: string };
 
     if (!isValidUUID(id)) {
@@ -231,7 +236,7 @@ export async function sendAgentMessage(
 ): Promise<void> {
   try {
     const empresaId = req.user!.empresaId!;
-    const { id } = req.params;
+    const id = p(req.params.id);
     const { message } = req.body as { message?: string };
 
     if (!isValidUUID(id)) {
@@ -369,7 +374,7 @@ export async function updateContact(
 ): Promise<void> {
   try {
     const empresaId = req.user!.empresaId!;
-    const { id } = req.params;
+    const id = p(req.params.id);
     const { nombre, telefono, email, canal, activo } = req.body as {
       nombre?: string;
       telefono?: string;
@@ -446,7 +451,7 @@ export async function getFlow(
 ): Promise<void> {
   try {
     const empresaId = req.user!.empresaId!;
-    const { id } = req.params;
+    const id = p(req.params.id);
 
     if (!isValidUUID(id)) {
       res.status(400).json({ message: "ID de flujo inválido." });
@@ -544,7 +549,7 @@ export async function updateFlow(
 ): Promise<void> {
   try {
     const empresaId = req.user!.empresaId!;
-    const { id } = req.params;
+    const id = p(req.params.id);
     const { nombre, trigger_keys, activo, orden } = req.body as {
       nombre?: string;
       trigger_keys?: string[];
@@ -595,7 +600,7 @@ export async function deleteFlow(
 ): Promise<void> {
   try {
     const empresaId = req.user!.empresaId!;
-    const { id } = req.params;
+    const id = p(req.params.id);
 
     if (!isValidUUID(id)) {
       res.status(400).json({ message: "ID de flujo inválido." });
@@ -627,7 +632,7 @@ export async function addFlowMessage(
 ): Promise<void> {
   try {
     const empresaId = req.user!.empresaId!;
-    const { id } = req.params;
+    const id = p(req.params.id);
     const { contenido, orden } = req.body as { contenido?: string; orden?: number };
 
     if (!isValidUUID(id)) {
@@ -669,7 +674,8 @@ export async function removeFlowMessage(
 ): Promise<void> {
   try {
     const empresaId = req.user!.empresaId!;
-    const { id, msgId } = req.params;
+    const id = p(req.params.id);
+    const msgId = p(req.params.msgId);
 
     const msgIdInt = parseInt(msgId, 10);
     if (!isValidUUID(id) || isNaN(msgIdInt)) {
@@ -710,7 +716,7 @@ export async function addFlowOption(
 ): Promise<void> {
   try {
     const empresaId = req.user!.empresaId!;
-    const { id } = req.params;
+    const id = p(req.params.id);
     const { trigger_key, etiqueta, siguiente_flujo, orden } = req.body as {
       trigger_key?: string;
       etiqueta?: string;
@@ -763,7 +769,8 @@ export async function removeFlowOption(
 ): Promise<void> {
   try {
     const empresaId = req.user!.empresaId!;
-    const { id, optId } = req.params;
+    const id = p(req.params.id);
+    const optId = p(req.params.optId);
 
     if (!isValidUUID(id) || !isValidUUID(optId)) {
       res.status(400).json({ message: "IDs inválidos." });
