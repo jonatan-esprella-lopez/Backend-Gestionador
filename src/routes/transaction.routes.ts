@@ -7,9 +7,10 @@ const router = Router();
 // Todas las rutas requieren autenticación y empresa
 router.use(authenticate);
 
-// ── Categorías ─────────────────────────────────────────────
+// ── Categorías y Resúmenes ─────────────────────────────────
 // Todos los roles de empresa pueden ver las categorías disponibles
 router.get("/categories", authorize("gerente", "contador", "empleado"), txController.listCategories);
+router.get("/summary", authorize("gerente", "contador", "empleado"), txController.summary);
 
 // ── Transacciones ──────────────────────────────────────────
 // Lectura: todos los roles de empresa
