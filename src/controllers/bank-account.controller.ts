@@ -19,7 +19,7 @@ export async function list(req: Request, res: Response, next: NextFunction): Pro
 // ─────────────────────────────────────────────────────────────
 export async function getById(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const cuenta = await bankService.getBankAccountById(req.user!.empresaId!, req.params.id);
+    const cuenta = await bankService.getBankAccountById(req.user!.empresaId!, req.params.id as string);
     res.status(200).json({ cuenta });
   } catch (err) {
     next(err);
@@ -70,7 +70,7 @@ export async function create(req: Request, res: Response, next: NextFunction): P
 // ─────────────────────────────────────────────────────────────
 export async function update(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    if (!isValidUUID(req.params.id)) {
+    if (!isValidUUID(req.params.id as string)) {
       res.status(400).json({ message: "ID de cuenta bancaria inválido" });
       return;
     }
@@ -83,7 +83,7 @@ export async function update(req: Request, res: Response, next: NextFunction): P
       activo?:        boolean;
     };
 
-    const cuenta = await bankService.updateBankAccount(req.user!.empresaId!, req.params.id, {
+    const cuenta = await bankService.updateBankAccount(req.user!.empresaId!, req.params.id as string, {
       nombre,
       banco,
       numero_cuenta,
@@ -103,11 +103,11 @@ export async function update(req: Request, res: Response, next: NextFunction): P
 // ─────────────────────────────────────────────────────────────
 export async function remove(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    if (!isValidUUID(req.params.id)) {
+    if (!isValidUUID(req.params.id as string)) {
       res.status(400).json({ message: "ID de cuenta bancaria inválido" });
       return;
     }
-    await bankService.deleteBankAccount(req.user!.empresaId!, req.params.id);
+    await bankService.deleteBankAccount(req.user!.empresaId!, req.params.id as string);
     res.status(200).json({ message: "Cuenta bancaria desactivada" });
   } catch (err) {
     next(err);

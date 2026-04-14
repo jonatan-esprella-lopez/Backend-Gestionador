@@ -166,11 +166,11 @@ export async function match(req: Request, res: Response, next: NextFunction): Pr
 export async function unmatch(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const empresaId = req.user!.empresaId!;
-    if (!isValidUUID(req.params.extractoId)) {
+    if (!isValidUUID(req.params.extractoId as string)) {
       res.status(400).json({ message: "ID de extracto inválido" });
       return;
     }
-    const result    = await reconService.unmatch(empresaId, req.params.extractoId);
+    const result    = await reconService.unmatch(empresaId, req.params.extractoId as string);
     res.status(200).json({ extracto: result });
   } catch (err) {
     next(err);

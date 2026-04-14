@@ -93,7 +93,7 @@ export async function update(req: Request, res: Response, next: NextFunction): P
       activo?: boolean;
     };
 
-    if (!isValidUUID(req.params.id)) {
+    if (!isValidUUID(req.params.id as string)) {
       res.status(400).json({ message: "ID de usuario inválido" });
       return;
     }

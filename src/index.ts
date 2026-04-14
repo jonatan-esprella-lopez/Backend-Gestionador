@@ -14,11 +14,23 @@ import reportRoutes from "./routes/report.routes";
 import bankAccountRoutes from "./routes/bank-account.routes";
 import reconciliationRoutes from "./routes/reconciliation.routes";
 import companyRoutes from "./routes/company.routes";
+import chartOfAccountsRoutes from "./routes/chart-of-accounts.routes";
+import taxRateRoutes from "./routes/tax-rate.routes";
+import journalEntryRoutes from "./routes/journal-entry.routes";
+import invoiceRoutes from "./routes/invoice.routes";
+import paymentRoutes from "./routes/payment.routes";
+import ledgerRoutes from "./routes/ledger.routes";
+import subledgerRoutes from "./routes/subledger.routes";
+import accountsReceivableRoutes from "./routes/accounts-receivable.routes";
+import accountsPayableRoutes from "./routes/accounts-payable.routes";
+import creditDebitNoteRoutes from "./routes/credit-debit-note.routes";
+import contactRoutes from "./routes/contact.routes";
 
 import { requestLogger } from "./middlewares/request-logger.middleware";
 import { generalLimiter, authLimiter, whatsappLimiter } from "./middlewares/rate-limit.middleware";
 import whatsappRoutes from "./routes/whatsapp.routes";
-import { startOverdueJob } from "./jobs/overdue.job";
+import { startInvoiceOverdueJob } from "./jobs/invoice-overdue.job";
+import { startITMensualJob } from "./jobs/it-mensual.job";
 import { reconnectPersistedSessions } from "./services/whatsapp.service";
 
 const app = express();
@@ -51,6 +63,19 @@ app.use(`${API_PREFIX}/bank-accounts`, bankAccountRoutes);
 app.use(`${API_PREFIX}/reconciliation`, reconciliationRoutes);
 app.use(`${API_PREFIX}/companies`, companyRoutes);
 app.use(`${API_PREFIX}/whatsapp`, whatsappLimiter, whatsappRoutes);
+// ── Contabilidad ───────────────────────────────────────────
+app.use(`${API_PREFIX}/chart-of-accounts`, chartOfAccountsRoutes);
+app.use(`${API_PREFIX}/tax-rates`,         taxRateRoutes);
+app.use(`${API_PREFIX}/journal-entries`,   journalEntryRoutes);
+app.use(`${API_PREFIX}/invoices`,              invoiceRoutes);
+app.use(`${API_PREFIX}/payments`,              paymentRoutes);
+// ── Libro Mayor / Auxiliares / CxC / CxP ──────────────────────
+app.use(`${API_PREFIX}/ledger`,                ledgerRoutes);
+app.use(`${API_PREFIX}/subledger`,             subledgerRoutes);
+app.use(`${API_PREFIX}/accounts-receivable`,   accountsReceivableRoutes);
+app.use(`${API_PREFIX}/accounts-payable`,      accountsPayableRoutes);
+app.use(`${API_PREFIX}/credit-debit-notes`,    creditDebitNoteRoutes);
+app.use(`${API_PREFIX}/contacts`,             contactRoutes);
 
 // ── Archivos estáticos (solo dev — en prod las imágenes van a R2) ──────────
 app.use("/uploads", express.static(path.resolve("uploads")));
@@ -90,7 +115,8 @@ app.use((err: Error & { status?: number }, req: Request, res: Response, _next: N
 // ── Arranque ───────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en http://localhost:${PORT}`);
-  startOverdueJob();
+  startInvoiceOverdueJob();
+  startITMensualJob();
   // Auto-reconnect WhatsApp sessions saved on disk (survives server restarts)
   reconnectPersistedSessions().catch(console.error);
 });

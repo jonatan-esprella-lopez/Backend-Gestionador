@@ -17,6 +17,7 @@ function parseFormBody(body: Record<string, any>) {
     min_warning:  body.min_warning  !== undefined      ? Number(body.min_warning)  : undefined,
     categoria_id: body.categoria_id !== undefined      ? Number(body.categoria_id) : undefined,
     imagen_url:   typeof body.imagen_url  === "string" ? body.imagen_url           : undefined,
+    activo:       body.activo !== undefined             ? body.activo === "true" || body.activo === true : undefined,
     receta:       typeof body.receta      === "string" ? JSON.parse(body.receta)   : body.receta,
   };
 }
@@ -78,7 +79,7 @@ export async function listCategories(req: Request, res: Response, next: NextFunc
 export async function getById(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const empresaId = req.user!.empresaId!;
-    if (!isValidUUID(req.params.id)) {
+    if (!isValidUUID(req.params.id as string)) {
       res.status(400).json({ message: "ID de item inválido" });
       return;
     }
@@ -151,7 +152,7 @@ export async function create(req: Request, res: Response, next: NextFunction): P
 export async function update(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const empresaId = req.user!.empresaId!;
-    if (!isValidUUID(req.params.id)) {
+    if (!isValidUUID(req.params.id as string)) {
       res.status(400).json({ message: "ID de item inválido" });
       return;
     }
@@ -191,7 +192,7 @@ export async function update(req: Request, res: Response, next: NextFunction): P
 export async function adjustStock(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const empresaId = req.user!.empresaId!;
-    if (!isValidUUID(req.params.id)) {
+    if (!isValidUUID(req.params.id as string)) {
       res.status(400).json({ message: "ID de item inválido" });
       return;
     }
@@ -222,7 +223,7 @@ export async function adjustStock(req: Request, res: Response, next: NextFunctio
 export async function produce(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const empresaId = req.user!.empresaId!;
-    if (!isValidUUID(req.params.id)) {
+    if (!isValidUUID(req.params.id as string)) {
       res.status(400).json({ message: "ID de item inválido" });
       return;
     }
@@ -261,7 +262,7 @@ export async function produce(req: Request, res: Response, next: NextFunction): 
 export async function remove(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const empresaId = req.user!.empresaId!;
-    if (!isValidUUID(req.params.id)) {
+    if (!isValidUUID(req.params.id as string)) {
       res.status(400).json({ message: "ID de item inválido" });
       return;
     }
@@ -279,7 +280,7 @@ export async function remove(req: Request, res: Response, next: NextFunction): P
 export async function kardex(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const empresaId = req.user!.empresaId!;
-    if (!isValidUUID(req.params.id)) {
+    if (!isValidUUID(req.params.id as string)) {
       res.status(400).json({ message: "ID de item inválido" });
       return;
     }
