@@ -36,7 +36,7 @@ export interface UpdateTransactionData {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Helpers para Fechas y Partida Doble
+// Helpers para Fechas
 // ─────────────────────────────────────────────────────────────
 
 function notFound() {
@@ -67,59 +67,6 @@ function validateFechas(estado: EstadoTransaccion | undefined, fechaEmision: Dat
       );
     }
   }
-}
-
-// Genera registro de Partida Doble simulando crédito/débito automático en el Banco
-async function procesarPartidaDoble(txId: string, preDbTransaction?: any) {
-  const db = preDbTransaction || prisma;
-  
-  const tx = await db.transaccion.findUnique({
-    where: { id: txId }
-  });
-
-  if (!tx || tx.estado !== "completed") return;
-
-  // Ver si ya tiene extracto asociado
-  const existe = await db.extractoBancario.findFirst({
-    where: { transaccion_id: tx.id }
-  });
-
-  if (existe) return;
-
-  // Buscar o crear cuenta bancaria (Caja/Efectivo)
-  let cuenta = await db.cuentaBancaria.findFirst({
-    where: { empresa_id: tx.empresa_id, activo: true },
-    orderBy: { created_at: "asc" }
-  });
-
-  if (!cuenta) {
-    cuenta = await db.cuentaBancaria.create({
-      data: {
-        empresa_id: tx.empresa_id,
-        nombre: "Caja Principal",
-        saldo_actual: 0
-      }
-    });
-  }
-
-  const montoImpacto = tx.tipo === "income" ? Number(tx.monto) : -Number(tx.monto);
-
-  await db.extractoBancario.create({
-    data: {
-      empresa_id: tx.empresa_id,
-      cuenta_id: cuenta.id,
-      fecha: tx.fecha,
-      descripcion: tx.descripcion,
-      monto: montoImpacto,
-      conciliado: true, // Creado automáticamente desde contabilidad
-      transaccion_id: tx.id
-    }
-  });
-
-  await db.cuentaBancaria.update({
-    where: { id: cuenta.id },
-    data: { saldo_actual: { increment: montoImpacto } }
-  });
 }
 
 // Select público (excluye campos internos innecesarios)
@@ -250,11 +197,6 @@ export async function createTransaction(
     select: PUBLIC_SELECT,
   });
 
-  // Si es completed, registramos la partida doble automáticamente
-  if (tx.estado === "completed") {
-    await procesarPartidaDoble(tx.id);
-  }
-
   return tx;
 }
 
@@ -322,14 +264,6 @@ export async function updateTransaction(
     select: PUBLIC_SELECT,
   });
 
-  // Si cambia a completed o si ya estaba completed y modificaron monto/tipo, 
-  // idealmente podríamos reajustar los extractos. Para mantener integridad, 
-  // confiamos en que procesarPartidaDoble al menos genere el extracto original 
-  // si es que acaba de pasar a completed.
-  if (updatedTx.estado === "completed") {
-    await procesarPartidaDoble(updatedTx.id);
-  }
-
   return updatedTx;
 }
 
@@ -358,10 +292,6 @@ export async function updateTransactionStatus(
     data: { estado },
     select: PUBLIC_SELECT,
   });
-
-  if (txUpdated.estado === "completed") {
-    await procesarPartidaDoble(txUpdated.id);
-  }
 
   return txUpdated;
 }
@@ -401,8 +331,6 @@ export async function deleteTransaction(empresaId: string, id: string) {
       }
     });
 
-    // 3. Partida doble de la reversión (compensa la cuenta de banco automáticamente)
-    await procesarPartidaDoble(reversion.id, tx);
   });
 }
 

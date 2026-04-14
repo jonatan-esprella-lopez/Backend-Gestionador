@@ -10,6 +10,7 @@
 
 import bcrypt from "bcryptjs";
 import { PrismaClient } from "@prisma/client";
+import { seedContabilidad } from "./seeds/run-contabilidad";
 
 const prisma = new PrismaClient();
 
@@ -114,6 +115,7 @@ async function main() {
   await seedMonedas();
   await seedAdmin();
   await seedCategories();
+  await seedContabilidad();
 }
 
 main()

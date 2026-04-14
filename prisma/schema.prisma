@@ -90,6 +90,72 @@ enum RemitenteChat {
   agent
 }
 
+// ── Contabilidad ─────────────────────────────────────────────
+enum TipoCuentaContable {
+  activo
+  pasivo
+  patrimonio
+  ingreso
+  gasto
+}
+
+enum NaturalezaCuenta {
+  deudora
+  acreedora
+}
+
+enum TipoImpuesto {
+  trasladado
+  retenido
+}
+
+enum OrigenAsiento {
+  factura
+  pago
+  ajuste
+  apertura
+  cierre
+  reversion
+  pos
+  nota_credito
+  nota_debito
+}
+
+enum EstadoAsiento {
+  borrador
+  confirmado
+  anulado
+}
+
+enum TipoFactura {
+  venta
+  compra
+  ticket_pos
+}
+
+enum EstadoFactura {
+  borrador
+  emitida
+  parcial
+  pagada
+  anulada
+  vencida
+}
+
+enum MetodoPago {
+  efectivo
+  transferencia
+  cheque
+  qr
+  tarjeta
+  otro
+}
+
+enum TipoNota {
+  credito
+  debito
+}
+
 // ============================================================
 // 1. MONEDAS
 //    Catálogo ISO 4217. PK natural: código de 3 letras.
@@ -111,12 +177,14 @@ model Moneda {
 //    Raíz del sistema. moneda_codigo es fuente canónica.
 // ============================================================
 model Empresa {
-  id            String   @id @default(uuid()) @db.Uuid
-  nombre        String   @default("MicroEmpresa S.A.") @db.VarChar(255)
-  moneda_codigo String   @default("USD") @db.Char(3)
-  logo_url      String?
-  created_at    DateTime @default(now()) @db.Timestamptz(6)
-  updated_at    DateTime @updatedAt @db.Timestamptz(6)
+  id               String   @id @default(uuid()) @db.Uuid
+  nombre           String   @default("MicroEmpresa S.A.") @db.VarChar(255)
+  moneda_codigo    String   @default("USD") @db.Char(3)
+  moneda_funcional String   @default("BOB") @db.VarChar(3)
+  ciudad           String?  @default("Cochabamba") @db.VarChar(100)
+  logo_url         String?
+  created_at       DateTime @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime @updatedAt @db.Timestamptz(6)
 
   // Relaciones
   moneda                 Moneda                 @relation(fields: [moneda_codigo], references: [codigo], onUpdate: Cascade)
@@ -133,6 +201,13 @@ model Empresa {
   cuentas_bancarias      CuentaBancaria[]
   extractos_bancarios    ExtractoBancario[]
   configuracion          Configuracion[]
+  // Contabilidad
+  cuentas_contables      CuentaContable[]
+  tasas_impuesto         TasaImpuesto[]
+  asientos_contables     AsientoContable[]
+  facturas               Factura[]
+  pagos                  Pago[]
+  notas_credito_debito   NotaCreditoDebito[]
 
   @@map("empresa")
 }
@@ -156,10 +231,15 @@ model Usuario {
 
   // Relaciones
   // empresa_id es nullable: admins de plataforma no pertenecen a empresa
-  empresa        Empresa?        @relation(fields: [empresa_id], references: [id], onDelete: Cascade)
-  transacciones  Transaccion[]
-  produccion_log ProduccionLog[]
-  kardex         Kardex[]
+  empresa              Empresa?          @relation(fields: [empresa_id], references: [id], onDelete: Cascade)
+  transacciones        Transaccion[]
+  produccion_log       ProduccionLog[]
+  kardex               Kardex[]
+  // Contabilidad
+  asientos_contables   AsientoContable[]
+  facturas             Factura[]
+  pagos                Pago[]
+  notas_credito_debito NotaCreditoDebito[]
 
   @@index([empresa_id])
   @@map("usuarios")
@@ -263,6 +343,7 @@ model InventarioItem {
   ingrediente_en RecetaIngrediente[]  @relation("InsumoEnReceta")
   produccion_log ProduccionLog[]
   kardex         Kardex[]
+  facturas_lineas FacturaLinea[]
 
   @@unique([empresa_id, sku])
   @@index([empresa_id])
@@ -433,23 +514,38 @@ model FlujoOpcion {
 // 15. CONTACTOS
 // ============================================================
 model Contacto {
-  id         String        @id @default(uuid()) @db.Uuid
-  empresa_id String        @db.Uuid
-  nombre     String        @db.VarChar(255)
-  telefono   String?       @db.VarChar(30)
-  email      String?       @db.VarChar(255)
-  canal      CanalContacto @default(whatsapp)
-  activo     Boolean       @default(true)
-  created_at DateTime      @default(now()) @db.Timestamptz(6)
-  updated_at DateTime      @updatedAt @db.Timestamptz(6)
+  id                 String        @id @default(uuid()) @db.Uuid
+  empresa_id         String        @db.Uuid
+  nombre             String        @db.VarChar(255)
+  telefono           String?       @db.VarChar(30)
+  email              String?       @db.VarChar(255)
+  canal              CanalContacto @default(whatsapp)
+  activo             Boolean       @default(true)
+  // Datos fiscales Bolivia
+  es_cliente         Boolean       @default(false)
+  es_proveedor       Boolean       @default(false)
+  nit                String?       @db.VarChar(20)
+  razon_social       String?       @db.VarChar(200)
+  direccion_fiscal   String?       @db.Text
+  ciudad             String?       @default("Cochabamba") @db.VarChar(100)
+  pais               String        @default("BO") @db.VarChar(2)
+  email_facturacion  String?       @db.VarChar(150)
+  dias_credito       Int           @default(0)
+  limite_credito     Decimal?      @db.Decimal(18, 2)
+  created_at         DateTime      @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime      @updatedAt @db.Timestamptz(6)
 
   // Relaciones
-  empresa Empresa @relation(fields: [empresa_id], references: [id], onDelete: Cascade)
-  chats   Chat[]
+  empresa               Empresa              @relation(fields: [empresa_id], references: [id], onDelete: Cascade)
+  chats                 Chat[]
+  facturas              Factura[]
+  movimientos_contables MovimientoContable[]
 
   @@index([empresa_id])
   @@index([telefono])
   @@index([canal])
+  @@index([empresa_id, es_cliente])
+  @@index([empresa_id, es_proveedor])
   @@map("contactos")
 }
 
@@ -506,21 +602,24 @@ model ChatMensaje {
 // 18. CUENTAS BANCARIAS
 // ============================================================
 model CuentaBancaria {
-  id            String   @id @default(uuid()) @db.Uuid
-  empresa_id    String   @db.Uuid
-  nombre        String   @db.VarChar(255)
-  banco         String?  @db.VarChar(255)
-  numero_cuenta String?  @db.VarChar(50)
-  moneda_codigo String   @default("USD") @db.Char(3)
-  saldo_actual  Decimal  @default(0) @db.Decimal(15, 2)
-  activo        Boolean  @default(true)
-  created_at    DateTime @default(now()) @db.Timestamptz(6)
-  updated_at    DateTime @updatedAt @db.Timestamptz(6)
+  id                  String   @id @default(uuid()) @db.Uuid
+  empresa_id          String   @db.Uuid
+  nombre              String   @db.VarChar(255)
+  banco               String?  @db.VarChar(255)
+  numero_cuenta       String?  @db.VarChar(50)
+  moneda_codigo       String   @default("USD") @db.Char(3)
+  saldo_actual        Decimal  @default(0) @db.Decimal(15, 2)
+  activo              Boolean  @default(true)
+  cuenta_contable_id  String?  @db.Uuid  // enlace a 1.1.03 Bancos M/N u otra cuenta contable
+  created_at          DateTime @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime @updatedAt @db.Timestamptz(6)
 
   // Relaciones
-  empresa             Empresa            @relation(fields: [empresa_id], references: [id], onDelete: Cascade)
-  moneda              Moneda             @relation(fields: [moneda_codigo], references: [codigo], onUpdate: Cascade)
+  empresa             Empresa         @relation(fields: [empresa_id], references: [id], onDelete: Cascade)
+  moneda              Moneda          @relation(fields: [moneda_codigo], references: [codigo], onUpdate: Cascade)
   extractos_bancarios ExtractoBancario[]
+  pagos               Pago[]
+  cuenta_contable     CuentaContable? @relation(fields: [cuenta_contable_id], references: [id], onDelete: SetNull)
 
   @@index([empresa_id])
   @@map("cuentas_bancarias")
@@ -576,4 +675,251 @@ model Configuracion {
   @@map("configuracion")
 }
 
+// ============================================================
+// 21. PLAN DE CUENTAS
+// ============================================================
+model CuentaContable {
+  id               String             @id @default(uuid()) @db.Uuid
+  empresa_id       String             @db.Uuid
+  codigo           String             @db.VarChar(20)
+  nombre           String             @db.VarChar(150)
+  tipo             TipoCuentaContable
+  naturaleza       NaturalezaCuenta
+  cuenta_padre_id  String?            @db.Uuid
+  nivel            Int                // 1=mayor, 2=subgrupo, 3=cuenta, 4=subcuenta
+  permite_asiento  Boolean            @default(false)  // solo hojas aceptan movimientos
+  activo           Boolean            @default(true)
+  created_at       DateTime           @default(now())
+  updated_at       DateTime           @updatedAt
 
+  // Relaciones
+  empresa          Empresa              @relation(fields: [empresa_id], references: [id], onDelete: Cascade)
+  cuenta_padre     CuentaContable?      @relation("CuentaPadreHija", fields: [cuenta_padre_id], references: [id])
+  hijas            CuentaContable[]     @relation("CuentaPadreHija")
+  movimientos      MovimientoContable[]
+  tasa_debito_de   TasaImpuesto[]       @relation("TasaDebito")
+  tasa_credito_de  TasaImpuesto[]       @relation("TasaCredito")
+  lineas_factura   FacturaLinea[]
+  cuentas_bancarias CuentaBancaria[]
+
+  @@unique([empresa_id, codigo])
+  @@index([empresa_id, tipo])
+  @@map("cuentas_contables")
+}
+
+// ============================================================
+// 22. TASAS DE IMPUESTO
+// ============================================================
+model TasaImpuesto {
+  id                String          @id @default(uuid()) @db.Uuid
+  empresa_id        String          @db.Uuid
+  nombre            String          @db.VarChar(80)
+  codigo            String          @db.VarChar(20)
+  porcentaje        Decimal         @db.Decimal(5, 2)
+  tipo              TipoImpuesto
+  cuenta_debito_id  String?         @db.Uuid  // IVA Crédito Fiscal (compras)
+  cuenta_credito_id String?         @db.Uuid  // IVA Débito Fiscal (ventas)
+  activo            Boolean         @default(true)
+  created_at        DateTime        @default(now())
+  updated_at        DateTime        @updatedAt
+
+  // Relaciones
+  empresa        Empresa         @relation(fields: [empresa_id], references: [id], onDelete: Cascade)
+  cuenta_debito  CuentaContable? @relation("TasaDebito", fields: [cuenta_debito_id], references: [id])
+  cuenta_credito CuentaContable? @relation("TasaCredito", fields: [cuenta_credito_id], references: [id])
+  lineas_factura FacturaLinea[]
+
+  @@unique([empresa_id, codigo])
+  @@map("tasas_impuesto")
+}
+
+// ============================================================
+// 23. ASIENTOS CONTABLES (Libro Diario)
+// ============================================================
+model AsientoContable {
+  id                   String             @id @default(uuid()) @db.Uuid
+  empresa_id           String             @db.Uuid
+  numero               Int                // secuencial por empresa (trigger)
+  fecha                DateTime           @db.Date
+  concepto             String             @db.VarChar(300)
+  tipo_origen          OrigenAsiento
+  origen_id            String?            @db.Uuid
+  asiento_reversion_id String?            @db.Uuid
+  usuario_id           String             @db.Uuid
+  estado               EstadoAsiento      @default(borrador)
+  total_debe           Decimal            @db.Decimal(18, 2)
+  total_haber          Decimal            @db.Decimal(18, 2)
+  created_at           DateTime           @default(now())
+  updated_at           DateTime           @updatedAt
+
+  // Relaciones
+  empresa           Empresa              @relation(fields: [empresa_id], references: [id], onDelete: Cascade)
+  usuario           Usuario              @relation(fields: [usuario_id], references: [id])
+  movimientos       MovimientoContable[]
+  asiento_reversion AsientoContable?     @relation("Reversion", fields: [asiento_reversion_id], references: [id])
+  reversado_por     AsientoContable[]    @relation("Reversion")
+  facturas          Factura[]
+  pagos             Pago[]
+  notas_credito_debito NotaCreditoDebito[]
+
+  @@unique([empresa_id, numero])
+  @@index([empresa_id, fecha])
+  @@index([tipo_origen, origen_id])
+  @@map("asientos_contables")
+}
+
+// ============================================================
+// 24. MOVIMIENTOS CONTABLES (líneas de asiento)
+// ============================================================
+model MovimientoContable {
+  id          String   @id @default(uuid()) @db.Uuid
+  asiento_id  String   @db.Uuid
+  cuenta_id   String   @db.Uuid
+  debe        Decimal  @default(0) @db.Decimal(18, 2)
+  haber       Decimal  @default(0) @db.Decimal(18, 2)
+  descripcion String?  @db.VarChar(300)
+  contacto_id String?  @db.Uuid
+  orden       Int
+
+  // Relaciones
+  asiento  AsientoContable @relation(fields: [asiento_id], references: [id], onDelete: Cascade)
+  cuenta   CuentaContable  @relation(fields: [cuenta_id], references: [id])
+  contacto Contacto?       @relation(fields: [contacto_id], references: [id])
+
+  @@index([cuenta_id])
+  @@index([contacto_id])
+  @@map("movimientos_contables")
+}
+
+// ============================================================
+// 25. FACTURAS (CxC / CxP)
+// ============================================================
+model Factura {
+  id                       String        @id @default(uuid()) @db.Uuid
+  empresa_id               String        @db.Uuid
+  tipo                     TipoFactura
+  numero                   String        @db.VarChar(30)
+  contacto_id              String        @db.Uuid
+  usuario_id               String        @db.Uuid
+  fecha_emision            DateTime      @db.Date
+  fecha_vencimiento        DateTime      @db.Date
+  moneda_codigo            String        @default("BOB") @db.VarChar(3)
+  subtotal                 Decimal       @db.Decimal(18, 2)
+  total_impuestos          Decimal       @db.Decimal(18, 2)
+  total                    Decimal       @db.Decimal(18, 2)
+  saldo_pendiente          Decimal       @db.Decimal(18, 2)
+  estado                   EstadoFactura @default(borrador)
+  observaciones            String?       @db.Text
+  // Campos reservados SIAT/SIN (fase 2)
+  codigo_autorizacion      String?       @db.VarChar(50)
+  codigo_control           String?       @db.VarChar(100)
+  fecha_limite_emision     DateTime?     @db.Date
+  numero_autorizacion_cufe String?       @db.VarChar(100)
+  asiento_id               String?       @db.Uuid
+  created_at               DateTime      @default(now())
+  updated_at               DateTime      @updatedAt
+
+  // Relaciones
+  empresa              Empresa             @relation(fields: [empresa_id], references: [id], onDelete: Cascade)
+  contacto             Contacto            @relation(fields: [contacto_id], references: [id])
+  usuario              Usuario             @relation(fields: [usuario_id], references: [id])
+  asiento              AsientoContable?    @relation(fields: [asiento_id], references: [id])
+  lineas               FacturaLinea[]
+  pagos                Pago[]
+  notas_credito_debito NotaCreditoDebito[]
+
+  @@unique([empresa_id, tipo, numero])
+  @@index([empresa_id, estado])
+  @@index([contacto_id])
+  @@index([fecha_vencimiento])
+  @@map("facturas")
+}
+
+// ============================================================
+// 26. LINEAS DE FACTURA
+// ============================================================
+model FacturaLinea {
+  id                      String   @id @default(uuid()) @db.Uuid
+  factura_id              String   @db.Uuid
+  item_id                 String?  @db.Uuid
+  descripcion             String   @db.VarChar(300)
+  cantidad                Decimal  @db.Decimal(18, 4)
+  precio_unitario         Decimal  @db.Decimal(18, 4)
+  subtotal_linea          Decimal  @db.Decimal(18, 2)
+  tasa_impuesto_id        String?  @db.Uuid
+  monto_impuesto          Decimal  @default(0) @db.Decimal(18, 2)
+  total_linea             Decimal  @db.Decimal(18, 2)
+  cuenta_ingreso_gasto_id String?  @db.Uuid
+  orden                   Int
+
+  // Relaciones
+  factura             Factura          @relation(fields: [factura_id], references: [id], onDelete: Cascade)
+  item                InventarioItem?  @relation(fields: [item_id], references: [id])
+  tasa_impuesto       TasaImpuesto?    @relation(fields: [tasa_impuesto_id], references: [id])
+  cuenta_ingreso_gasto CuentaContable? @relation(fields: [cuenta_ingreso_gasto_id], references: [id])
+
+  @@index([factura_id])
+  @@map("facturas_lineas")
+}
+
+// ============================================================
+// 27. PAGOS (soporta parciales)
+// ============================================================
+model Pago {
+  id                 String     @id @default(uuid()) @db.Uuid
+  empresa_id         String     @db.Uuid
+  factura_id         String     @db.Uuid
+  cuenta_bancaria_id String     @db.Uuid
+  fecha              DateTime   @db.Date
+  monto              Decimal    @db.Decimal(18, 2)
+  metodo             MetodoPago
+  referencia         String?    @db.VarChar(100)
+  observaciones      String?    @db.Text
+  asiento_id         String?    @db.Uuid
+  usuario_id         String     @db.Uuid
+  created_at         DateTime   @default(now())
+
+  // Relaciones
+  empresa         Empresa          @relation(fields: [empresa_id], references: [id], onDelete: Cascade)
+  factura         Factura          @relation(fields: [factura_id], references: [id])
+  cuenta_bancaria CuentaBancaria   @relation(fields: [cuenta_bancaria_id], references: [id])
+  asiento         AsientoContable? @relation(fields: [asiento_id], references: [id])
+  usuario         Usuario          @relation(fields: [usuario_id], references: [id])
+
+  @@index([factura_id])
+  @@index([empresa_id, fecha])
+  @@map("pagos")
+}
+
+// ============================================================
+// 28. NOTAS DE CRÉDITO / DÉBITO
+// ============================================================
+model NotaCreditoDebito {
+  id         String   @id @default(uuid()) @db.Uuid
+  empresa_id String   @db.Uuid
+  factura_id String   @db.Uuid
+  tipo       TipoNota
+  numero     String   @db.VarChar(30)
+  fecha      DateTime @db.Date
+  motivo     String   @db.VarChar(300)
+  monto      Decimal  @db.Decimal(18, 2)
+  asiento_id String?  @db.Uuid
+  usuario_id String   @db.Uuid
+  created_at DateTime @default(now())
+
+  // Relaciones
+  empresa  Empresa          @relation(fields: [empresa_id], references: [id], onDelete: Cascade)
+  factura  Factura          @relation(fields: [factura_id], references: [id])
+  asiento  AsientoContable? @relation(fields: [asiento_id], references: [id])
+  usuario  Usuario          @relation(fields: [usuario_id], references: [id])
+
+  @@unique([empresa_id, tipo, numero])
+  @@map("notas_credito_debito")
+}
+
+// ============================================================
+// 29. RELACION InventarioItem → FacturaLinea
+// ============================================================
+// (la relación inversa se define en InventarioItem a continuación
+//  pero Prisma la infiere desde FacturaLinea.item_id — no se
+//  necesita campo explícito en InventarioItem para la migración)

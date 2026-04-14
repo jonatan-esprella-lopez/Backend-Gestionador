@@ -130,11 +130,11 @@ export async function getCashflow(empresaId: string) {
 
   for (const row of incomePorDia) {
     const key = row.fecha.toISOString().split("T")[0];
-    mapaIncome.set(key, toNum(row._sum.monto));
+    mapaIncome.set(key, toNum(row._sum?.monto));
   }
   for (const row of expensePorDia) {
     const key = row.fecha.toISOString().split("T")[0];
-    mapaExpense.set(key, toNum(row._sum.monto));
+    mapaExpense.set(key, toNum(row._sum?.monto));
   }
 
   // Generar serie completa de 30 días (sin huecos)
@@ -174,7 +174,8 @@ export async function getByCategory(
         fecha:      { gte: desde, lte: hasta },
       },
       _sum:   { monto: true },
-      _count: { id: true },
+      _count: { _all: true },
+      orderBy: { _sum: { monto: "desc" } },
     }),
     prisma.categoriaTransaccion.findMany({
       where: { OR: [{ empresa_id: null }, { empresa_id: empresaId }] },
@@ -192,8 +193,8 @@ export async function getByCategory(
     const entry = {
       categoria_id: row.categoria_id,
       categoria:    cat?.nombre ?? "Sin categoría",
-      total:        toNum(row._sum.monto),
-      count:        row._count.id,
+      total:        toNum(row._sum?.monto),
+      count:        (row._count as any)._all ?? 0,
     };
 
     if (row.tipo === "income")  income.push(entry);

@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { Rol } from "@prisma/client";
 import prisma from "../lib/prisma";
 import jwtConfig from "../config/jwt.config";
+import { seedPlanCuentasBolivia } from "../data/planCuentasBolivia";
 
 interface AccessTokenPayload extends JwtPayload {
   userId: string;
@@ -88,12 +89,12 @@ export async function register(
 
   const passwordHash = await bcrypt.hash(password, 12);
 
-  const user = await prisma.$transaction(async (tx) => {
+  const { user, empresaId } = await prisma.$transaction(async (tx) => {
     const empresa = await tx.empresa.create({
       data: { nombre: nombreEmpresa, moneda_codigo: monedaCodigo },
     });
 
-    return tx.usuario.create({
+    const usuario = await tx.usuario.create({
       data: {
         nombre,
         email,
@@ -102,7 +103,30 @@ export async function register(
         empresa_id: empresa.id,
       },
     });
+
+    return { user: usuario, empresaId: empresa.id };
   });
+
+  // Inicializar plan de cuentas Bolivia e IVA por defecto.
+  // Se ejecuta fuera de la transacción porque seedPlanCuentasBolivia
+  // requiere el cliente completo. Un fallo aquí no bloquea el registro.
+  try {
+    await seedPlanCuentasBolivia(prisma, empresaId);
+    await prisma.tasaImpuesto.createMany({
+      data: [
+        {
+          empresa_id: empresaId,
+          nombre:     "IVA",
+          codigo:     "IVA13",
+          porcentaje: 13,
+          tipo:       "trasladado",
+        },
+      ],
+      skipDuplicates: true,
+    });
+  } catch (seedErr) {
+    console.error("Advertencia: error inicializando datos por defecto de la empresa:", seedErr);
+  }
 
   const accessToken = buildAccessToken(user);
   const refreshToken = buildRefreshToken(user.id);
