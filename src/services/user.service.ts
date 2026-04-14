@@ -2,10 +2,6 @@ import bcrypt from "bcryptjs";
 import { Rol } from "@prisma/client";
 import prisma from "../lib/prisma";
 
-// ─────────────────────────────────────────────────────────────
-// Tipos públicos
-// ─────────────────────────────────────────────────────────────
-
 export interface UserPublic {
   id: string;
   nombre: string;
@@ -17,7 +13,6 @@ export interface UserPublic {
   created_at: Date;
 }
 
-// Selección que excluye campos sensibles
 const PUBLIC_SELECT = {
   id: true,
   nombre: true,
@@ -37,9 +32,6 @@ function sameCompanyFilter(empresaId: string, userId: string) {
   return { id: userId, empresa_id: empresaId };
 }
 
-// ─────────────────────────────────────────────────────────────
-// list — todos los usuarios de la empresa del admin
-// ─────────────────────────────────────────────────────────────
 export async function listUsers(empresaId: string): Promise<UserPublic[]> {
   return prisma.usuario.findMany({
     where: { empresa_id: empresaId },
@@ -48,22 +40,19 @@ export async function listUsers(empresaId: string): Promise<UserPublic[]> {
   });
 }
 
-// ─────────────────────────────────────────────────────────────
-// getById — un usuario de la empresa
-// ─────────────────────────────────────────────────────────────
 export async function getUserById(empresaId: string, userId: string): Promise<UserPublic> {
   const user = await prisma.usuario.findFirst({
     where: sameCompanyFilter(empresaId, userId),
     select: PUBLIC_SELECT,
   });
 
-  if (!user) throw notFound();
+  if (!user) {
+    throw notFound();
+  }
+
   return user;
 }
 
-// ─────────────────────────────────────────────────────────────
-// create — admin crea un usuario en su empresa
-// ─────────────────────────────────────────────────────────────
 export async function createUser(
   empresaId: string,
   data: { nombre: string; email: string; password: string; rol?: Rol }
@@ -79,7 +68,7 @@ export async function createUser(
 
   const emailTaken = await prisma.usuario.findUnique({ where: { email: data.email } });
   if (emailTaken) {
-    throw Object.assign(new Error("El email ya está registrado"), { status: 409 });
+    throw Object.assign(new Error("El email ya esta registrado"), { status: 409 });
   }
 
   const password_hash = await bcrypt.hash(data.password, 12);
@@ -96,10 +85,6 @@ export async function createUser(
   });
 }
 
-// ─────────────────────────────────────────────────────────────
-// update — admin actualiza datos de un usuario de su empresa
-// Un admin no puede cambiar su propio rol para evitar bloqueos
-// ─────────────────────────────────────────────────────────────
 export async function updateUser(
   empresaId: string,
   userId: string,
@@ -109,7 +94,10 @@ export async function updateUser(
   const exists = await prisma.usuario.findFirst({
     where: sameCompanyFilter(empresaId, userId),
   });
-  if (!exists) throw notFound();
+
+  if (!exists) {
+    throw notFound();
+  }
 
   if (data.rol && userId === requesterId) {
     throw Object.assign(new Error("No puedes cambiar tu propio rol"), { status: 403 });
@@ -118,7 +106,7 @@ export async function updateUser(
   if (data.email && data.email !== exists.email) {
     const emailTaken = await prisma.usuario.findUnique({ where: { email: data.email } });
     if (emailTaken) {
-      throw Object.assign(new Error("El email ya está registrado"), { status: 409 });
+      throw Object.assign(new Error("El email ya esta registrado"), { status: 409 });
     }
   }
 
@@ -129,10 +117,6 @@ export async function updateUser(
   });
 }
 
-// ─────────────────────────────────────────────────────────────
-// deactivate — soft delete: activo = false
-// Un admin no puede desactivarse a sí mismo
-// ─────────────────────────────────────────────────────────────
 export async function deactivateUser(
   empresaId: string,
   userId: string,
@@ -145,7 +129,10 @@ export async function deactivateUser(
   const exists = await prisma.usuario.findFirst({
     where: sameCompanyFilter(empresaId, userId),
   });
-  if (!exists) throw notFound();
+
+  if (!exists) {
+    throw notFound();
+  }
 
   return prisma.usuario.update({
     where: { id: userId },

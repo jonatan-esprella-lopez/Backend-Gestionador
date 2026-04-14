@@ -13,9 +13,6 @@ function requireEmpresaId(req: Request, res: Response): string | null {
   return req.user!.empresaId;
 }
 
-// ─────────────────────────────────────────────────────────────
-// GET /api/users
-// ─────────────────────────────────────────────────────────────
 export async function list(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const empresaId = requireEmpresaId(req, res);
@@ -28,9 +25,6 @@ export async function list(req: Request, res: Response, next: NextFunction): Pro
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// GET /api/users/:id
-// ─────────────────────────────────────────────────────────────
 export async function getById(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const empresaId = requireEmpresaId(req, res);
@@ -43,10 +37,6 @@ export async function getById(req: Request, res: Response, next: NextFunction): 
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// POST /api/users
-// Body: { nombre, email, password, rol? }
-// ─────────────────────────────────────────────────────────────
 export async function create(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const empresaId = requireEmpresaId(req, res);
@@ -60,7 +50,11 @@ export async function create(req: Request, res: Response, next: NextFunction): P
     };
 
     if (!nombre || !email || !password) {
-      res.status(400).json({ message: "nombre, email y contraseña son requeridos" });
+      res.status(400).json({
+        message: "nombre, email y contrasena son requeridos",
+        request_id: req.requestId,
+        endpoint_description: req.endpointDescription,
+      });
       return;
     }
 
@@ -86,10 +80,6 @@ export async function create(req: Request, res: Response, next: NextFunction): P
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// PATCH /api/users/:id
-// Body: { nombre?, email?, rol?, avatar_url?, activo? }
-// ─────────────────────────────────────────────────────────────
 export async function update(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const empresaId = requireEmpresaId(req, res);
@@ -131,9 +121,6 @@ export async function update(req: Request, res: Response, next: NextFunction): P
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// DELETE /api/users/:id  (soft delete → activo = false)
-// ─────────────────────────────────────────────────────────────
 export async function deactivate(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const empresaId = requireEmpresaId(req, res);

@@ -4,10 +4,6 @@ import { Rol } from "@prisma/client";
 import prisma from "../lib/prisma";
 import jwtConfig from "../config/jwt.config";
 
-// ─────────────────────────────────────────────────────────────
-// Tipos internos
-// ─────────────────────────────────────────────────────────────
-
 interface AccessTokenPayload extends JwtPayload {
   userId: string;
   empresaId: string;
@@ -34,10 +30,6 @@ export interface TokenPair {
   accessToken: string;
   refreshToken: string;
 }
-
-// ─────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────
 
 function buildAccessToken(user: {
   id: string;
@@ -82,11 +74,6 @@ async function clearRefreshToken(userId: string): Promise<void> {
   });
 }
 
-// ─────────────────────────────────────────────────────────────
-// register
-// Crea empresa + usuario admin en una sola transacción.
-// El que registra es siempre admin de su empresa.
-// ─────────────────────────────────────────────────────────────
 export async function register(
   nombre: string,
   email: string,
@@ -96,7 +83,7 @@ export async function register(
 ): Promise<LoginResult> {
   const emailTaken = await prisma.usuario.findUnique({ where: { email } });
   if (emailTaken) {
-    throw Object.assign(new Error("El email ya está registrado"), { status: 409 });
+    throw Object.assign(new Error("El email ya esta registrado"), { status: 409 });
   }
 
   const passwordHash = await bcrypt.hash(password, 12);
@@ -135,20 +122,18 @@ export async function register(
   };
 }
 
-// ─────────────────────────────────────────────────────────────
-// login
-// Verifica credenciales, genera ambos tokens y los persiste.
-// ─────────────────────────────────────────────────────────────
 export async function login(email: string, password: string): Promise<LoginResult> {
   const user = await prisma.usuario.findUnique({ where: { email } });
+  const invalidError = Object.assign(new Error("Credenciales invalidas"), { status: 401 });
 
-  // Respuesta genérica para no revelar si el email existe o no
-  const invalidErr = Object.assign(new Error("Credenciales inválidas"), { status: 401 });
-
-  if (!user || !user.activo) throw invalidErr;
+  if (!user || !user.activo) {
+    throw invalidError;
+  }
 
   const passwordOk = await bcrypt.compare(password, user.password_hash);
-  if (!passwordOk) throw invalidErr;
+  if (!passwordOk) {
+    throw invalidError;
+  }
 
   const accessToken = buildAccessToken(user);
   const refreshToken = buildRefreshToken(user.id);
@@ -168,69 +153,56 @@ export async function login(email: string, password: string): Promise<LoginResul
   };
 }
 
-// ─────────────────────────────────────────────────────────────
-// refresh + rotación
-//
-// Flujo:
-//   1. Verifica firma y expiración del refresh token JWT.
-//   2. Carga el usuario y compara el token con el hash guardado.
-//   3. Si NO coincide → token ya fue rotado y alguien lo reutilizó
-//      → COMPROMISO: se invalidan todas las sesiones del usuario.
-//   4. Si SÍ coincide → rotación: se generan nuevos tokens y
-//      se reemplaza el hash en BD.
-// ─────────────────────────────────────────────────────────────
 export async function refresh(refreshToken: string | undefined): Promise<TokenPair> {
-  const invalidErr = Object.assign(new Error("Sesión inválida o expirada"), { status: 401 });
+  const invalidError = Object.assign(new Error("Sesion invalida o expirada"), { status: 401 });
 
-  if (!refreshToken) throw invalidErr;
+  if (!refreshToken) {
+    throw invalidError;
+  }
 
-  // 1. Verificar firma y expiración
   let payload: RefreshTokenPayload;
   try {
     payload = jwt.verify(refreshToken, jwtConfig.refresh.secret) as RefreshTokenPayload;
   } catch {
-    throw invalidErr;
+    throw invalidError;
   }
 
-  // 2. Cargar usuario y su hash almacenado
   const user = await prisma.usuario.findUnique({ where: { id: payload.userId } });
 
-  if (!user || !user.activo || !user.refresh_token_hash) throw invalidErr;
+  if (!user || !user.activo || !user.refresh_token_hash) {
+    throw invalidError;
+  }
 
   const tokenMatches = await bcrypt.compare(refreshToken, user.refresh_token_hash);
 
-  // 3. Detección de reutilización → compromiso confirmado
   if (!tokenMatches) {
     await clearRefreshToken(user.id);
-
     throw Object.assign(
       new Error("Token comprometido detectado. Todas las sesiones han sido cerradas."),
       { status: 401 }
     );
   }
 
-  // 4. Rotación: nuevos tokens, nuevo hash en BD
   const newAccessToken = buildAccessToken(user);
   const newRefreshToken = buildRefreshToken(user.id);
 
   await saveRefreshToken(user.id, newRefreshToken);
 
-  return { accessToken: newAccessToken, refreshToken: newRefreshToken };
+  return {
+    accessToken: newAccessToken,
+    refreshToken: newRefreshToken,
+  };
 }
 
-// ─────────────────────────────────────────────────────────────
-// logout
-// Invalida el refresh token en BD y limpia la cookie.
-// Funciona incluso si el access token ya expiró: verifica
-// solo la firma del refresh token para obtener el userId.
-// ─────────────────────────────────────────────────────────────
 export async function logout(refreshToken: string | undefined): Promise<void> {
-  if (!refreshToken) return;
+  if (!refreshToken) {
+    return;
+  }
 
   try {
     const payload = jwt.verify(refreshToken, jwtConfig.refresh.secret) as RefreshTokenPayload;
     await clearRefreshToken(payload.userId);
   } catch {
-    // Token inválido o expirado: no hay sesión activa que invalidar
+    return;
   }
 }

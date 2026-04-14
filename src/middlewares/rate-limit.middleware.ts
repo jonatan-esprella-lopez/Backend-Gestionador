@@ -24,3 +24,16 @@ export const authLimiter = rateLimit({
   legacyHeaders: false,
   message: { message: "Demasiados intentos de autenticación. Intenta de nuevo en 15 minutos." },
 });
+
+// ─────────────────────────────────────────────────────────────
+// Límite WhatsApp — rutas de polling frecuente (chats, mensajes)
+// 1000 peticiones por IP cada 15 minutos (~1 req/s sostenido)
+// Se aplica ANTES del generalLimiter en esas rutas específicas
+// ─────────────────────────────────────────────────────────────
+export const whatsappLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 1000,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Demasiadas peticiones a WhatsApp. Intenta de nuevo en 15 minutos." },
+});

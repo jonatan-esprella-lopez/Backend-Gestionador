@@ -1,0 +1,112 @@
+# Guía de Integración WhatsApp API (Frontend)
+
+Este documento detalla el flujo completo para implementar el panel de WhatsApp en tu aplicación Frontend, basado siempre en los endpoints y estructuras del servidor backend.
+
+=======================================================
+1. MÓDULO DE CONEXIÓN Y CÓDIGO QR
+=======================================================
+El objetivo es permitir al usuario escanear un QR si su sesión no está activa, o mostrarle que ya está conectado.
+
+* GET /api/whatsapp/status
+  - Cuándo usarlo: Mediante polling (ej. cada 5 segundos) cuando el usuario esté en la página de Configurar WhatsApp.
+  - Respuesta esperada:
+      {
+        "state": "disconnected" | "loading" | "qr_pending" | "connected",
+        "qr": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg...",
+        "phone": "591XXXXX..."
+      }
+
+* POST /api/whatsapp/connect
+  - Cuándo usarlo: Cuando el state sea "disconnected" y el usuario presione el botón "Iniciar Sesión WhatsApp".
+  - Respuesta: 200 OK (Después de esto, hacer polling a /status para agarrar el QR).
+
+* DELETE /api/whatsapp/connect
+  - Cuándo usarlo: Para forzar el cierre de sesión (Desvincular WhatsApp).
+
+> FLUJO DE INTERFAZ SUGERIDO
+1. "disconnected": Muestra un botón "Vincular WhatsApp".
+2. "loading": Muestra un icono de carga.
+3. "qr_pending": Pinta en pantalla la imagen del "qr" y di "Escanea este código con tu celular".
+4. "connected": Muestra "Conexión activa con el número XXXXX".
+
+
+=======================================================
+2. OBTENER EL HISTORIAL DE CONVERSACIONES (PANEL IZQUIERDO)
+=======================================================
+Pinta la barra lateral de los chats activos al igual que WhatsApp Web.
+
+* GET /api/whatsapp/chats
+  - Cuándo usarlo: Al cargar la pantalla principal de mensajes. Deberás hacer polling de esta ruta (cada 5-10 segundos) para siempre enterarte si una celda tiene mensajes sin leer, o si llegó un nuevo contacto.
+  - Respuesta paginada esperada:
+      {
+        "data": [
+          {
+            "id": "chat-uuid",
+            "estado": "open",
+            "no_leidos": 2, // (Usa esto para una burbuja verde de notificaciones numéricas)
+            "ultimo_mensaje": "Hola! Cuánto vale?",
+            "ultima_actividad": "2026-04-07T15:18:59Z",
+            "contacto": { "id": "uuid", "nombre": "Pedrito", "telefono": "591..." }
+          }
+        ],
+        "meta": { "total": 1, "page": 1, "limit": 20 }
+      }
+
+
+=======================================================
+3. ABRIR UN CHAT ESPECÍFICO (PANEL DERECHO)
+=======================================================
+Cuando el usuario le da clic a uno de los chats de la barra lateral izquierda.
+
+* GET /api/whatsapp/chats/:id
+  - Comportamiento automático: Al hacer esta petición, automáticamente marcará en la base de datos "no_leidos" como 0 para este chat (lo lee).
+  - Qué hacer: Una vez te devuelve la data, muestras los mensajes.
+  - Respuesta esperada:
+      {
+        "id": "chat-uuid",
+        "contacto": { "nombre": "Pedrito", "telefono": "591..." },
+        "mensajes": [
+          {
+            "remitente": "user", // <- Alineado a la IZQUIERDA en la UI (Gris)
+            "contenido": "Hola! Cuánto vale?",
+            "created_at": "2026-04-07T15:20Z"
+          },
+          {
+            "remitente": "agent", // <- Alineado a la DERECHA en la UI (Verde)
+            "contenido": "Cuesta 50Bs.",
+            "created_at": "2026-04-07T15:21Z"
+          }
+        ]
+      }
+
+
+=======================================================
+4. ENVIAR Y RECIBIR MENSAJES
+=======================================================
+Cuando el Agente redacta texto y presiona ENVIAR.
+
+* POST /api/whatsapp/chats/:id/messages
+  - Cuándo usarlo: Cuando se envía el formulario del chat en tu Frontend.
+  - Body a enviar:
+      { "message": "Enseguida le marco." }
+  - Respuesta del servidor:
+      {
+        "id": "mensaje-uuid",
+        "contenido": "Enseguida le marco.",
+        "remitente": "agent",
+        "wa_sent": true, // <- ESTE ES EL SUPER PODER
+        "wa_error": null
+      }
+
+  > ¡ADVERTENCIA IMPORTANTE SOBRE "wa_sent"!
+  Tu servidor HTTP NUNCA MÁS se caerá ni dará "Error 500" si está desconectado WhatsApp. Tu servidor tratará de enviarlo y te devolverá enseguida una respuesta a tu frontend:
+  
+  a) Si wa_sent es TRUE: Añade los 2 ticks / palomitas en la interfaz de tu mensaje. Se entregó bien.
+  b) Si wa_sent es FALSE: Significa que tu sistema guardó el texto en la BD como historial, pero "no salió al teléfono del usuario final" (por internet, numero caido, etc). Muestra un Exclamación roja (!) o un aviso Toast de error diciendo que el WhatsApp está inactivo o el numero es inválido. Puedes leer específicamente qué falló leyendo `wa_error`.
+
+=======================================================
+RESUMEN DE ESTADO PARA DESARROLLADORES REACT/VUE
+=======================================================
+- Usa un `setInterval` en `/api/whatsapp/chats` para lograr ver la actividad casi en tiempo real (polling).
+- Si usas el endpoint POST para enviar y recibes tu objeto nuevo mensaje, mételo a la lista manual del "Estado" del Chat (ej. setChatActivo(prev => ...) ) de manera que el usuario lo vea de golpe; si luego te das cuenta de que wa_sent es false, manda un Toast alertándolo de por qué no se entregó (el numero no existe, loguearse de nuevo en WA, etc).
+- Números cortos (ej de solo 8 digitos 76937173): El frontend no necesita preocuparse. Tu base de datos guarda "76937173" tal cual, y el propio Backend detectará que requiere el "+591" y lo anexará detrás de cortinas para que tu cliente local reciba correctamente tu mensaje.

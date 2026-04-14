@@ -66,12 +66,32 @@ export async function listCategories(req: Request, res: Response, next: NextFunc
 }
 
 // ─────────────────────────────────────────────────────────────
+// GET /api/transactions/summary
+// Devuelve agrupación de transacciones 
+// ─────────────────────────────────────────────────────────────
+export async function summary(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const empresaId = req.user!.empresaId!;
+    const { month, year } = req.query;
+
+    const data = await txService.getSummaryTransactions(
+      empresaId, 
+      month ? Number(month) : undefined, 
+      year ? Number(year) : undefined
+    );
+    res.status(200).json({ summary: data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
 // GET /api/transactions/:id
 // ─────────────────────────────────────────────────────────────
 export async function getById(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const empresaId = req.user!.empresaId!;
-    if (!isValidUUID(req.params.id)) {
+    if (!isValidUUID(req.params.id as string)) {
       res.status(400).json({ message: "ID de transacción inválido" });
       return;
     }
@@ -158,7 +178,7 @@ export async function create(req: Request, res: Response, next: NextFunction): P
 export async function update(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const empresaId = req.user!.empresaId!;
-    if (!isValidUUID(req.params.id)) {
+    if (!isValidUUID(req.params.id as string)) {
       res.status(400).json({ message: "ID de transacción inválido" });
       return;
     }
@@ -196,7 +216,7 @@ export async function update(req: Request, res: Response, next: NextFunction): P
 export async function updateStatus(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const empresaId = req.user!.empresaId!;
-    if (!isValidUUID(req.params.id)) {
+    if (!isValidUUID(req.params.id as string)) {
       res.status(400).json({ message: "ID de transacción inválido" });
       return;
     }
@@ -225,7 +245,7 @@ export async function updateStatus(req: Request, res: Response, next: NextFuncti
 export async function remove(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const empresaId = req.user!.empresaId!;
-    if (!isValidUUID(req.params.id)) {
+    if (!isValidUUID(req.params.id as string)) {
       res.status(400).json({ message: "ID de transacción inválido" });
       return;
     }

@@ -3,11 +3,6 @@ import * as authService from "../services/auth.service";
 import jwtConfig from "../config/jwt.config";
 import { isValidEmail, isValidPassword } from "../lib/validators";
 
-// ─────────────────────────────────────────────────────────────
-// POST /api/auth/register
-// Body: { nombre, email, password, nombre_empresa, moneda_codigo? }
-// Respuesta: { access_token, user }  +  cookie refresh_token
-// ─────────────────────────────────────────────────────────────
 export async function register(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const { nombre, email, password, nombre_empresa, moneda_codigo } = req.body as {
@@ -19,7 +14,11 @@ export async function register(req: Request, res: Response, next: NextFunction):
     };
 
     if (!nombre || !email || !password || !nombre_empresa) {
-      res.status(400).json({ message: "nombre, email, contraseña y nombre_empresa son requeridos" });
+      res.status(400).json({
+        message: "nombre, email, contrasena y nombre_empresa son requeridos",
+        request_id: req.requestId,
+        endpoint_description: req.endpointDescription,
+      });
       return;
     }
 
@@ -48,17 +47,16 @@ export async function register(req: Request, res: Response, next: NextFunction):
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// POST /api/auth/login
-// Body: { email, password }
-// Respuesta: { access_token, user }  +  cookie refresh_token
-// ─────────────────────────────────────────────────────────────
 export async function login(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const { email, password } = req.body as { email?: string; password?: string };
 
     if (!email || !password) {
-      res.status(400).json({ message: "Email y contraseña son requeridos" });
+      res.status(400).json({
+        message: "Email y contrasena son requeridos",
+        request_id: req.requestId,
+        endpoint_description: req.endpointDescription,
+      });
       return;
     }
 
@@ -71,11 +69,6 @@ export async function login(req: Request, res: Response, next: NextFunction): Pr
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// POST /api/auth/refresh
-// Cookie: refresh_token
-// Respuesta: { access_token }  +  cookie refresh_token rotado
-// ─────────────────────────────────────────────────────────────
 export async function refresh(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const { accessToken, refreshToken } = await authService.refresh(
@@ -89,27 +82,17 @@ export async function refresh(req: Request, res: Response, next: NextFunction): 
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// POST /api/auth/logout
-// Cookie: refresh_token (opcional — si expiró también funciona)
-// Respuesta: 200 + limpia la cookie
-// ─────────────────────────────────────────────────────────────
 export async function logout(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     await authService.logout(req.cookies.refresh_token as string | undefined);
 
     res.clearCookie("refresh_token", jwtConfig.cookie);
-    res.status(200).json({ message: "Sesión cerrada exitosamente" });
+    res.status(200).json({ message: "Sesion cerrada exitosamente" });
   } catch (err) {
     next(err);
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// GET /api/auth/me
-// Header: Authorization: Bearer <access_token>
-// Respuesta: { user } extraído del token (sin tocar la BD)
-// ─────────────────────────────────────────────────────────────
 export function me(req: Request, res: Response): void {
   res.status(200).json({ user: req.user });
 }
